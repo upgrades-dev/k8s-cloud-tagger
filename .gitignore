@@ -1,0 +1,36 @@
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+*.rlib
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+.env
+.env.local
+
+# IDE temp files
+*.swp
+*.swo
+*~
+.#*
+
+# Dagger
+dagger/.dagger/
+
+# Local testing
+kind-cluster/
+

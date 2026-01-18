@@ -1,7 +1,7 @@
-// dagger/src/main.rs
-
 use dagger_sdk::connect;
 use eyre::Result;
+
+const RUST_CONTAINER: &str = "rust:latest";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -16,7 +16,7 @@ async fn main() -> Result<()> {
 async fn test(client: &dagger_sdk::Query) -> Result<()> {
     let output = client
         .container()
-        .from("rust:latest")
+        .from(RUST_CONTAINER)
         .with_directory("/src", client.host().directory(".."))
         .with_workdir("/src")
         .with_exec(vec!["cargo", "test"])

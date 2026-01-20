@@ -5,3 +5,6 @@ edition = "2024"
 
 [dependencies]
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
+kube = { version = "3.0.0", features = ["runtime", "derive", "client"] }
+k8s-openapi = { version = "0.27.0", features = ["v1_35"] }
+thiserror = "2.0.18"

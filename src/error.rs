@@ -4,7 +4,4 @@ use thiserror::Error;
 pub enum Error {
     #[error("Kubernetes API error: {0}")]
     Kube(#[from] kube::Error),
-
-    #[error("Missing object metadata")]
-    MissingMetadata,
 }

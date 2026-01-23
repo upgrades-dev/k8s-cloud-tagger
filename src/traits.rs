@@ -3,8 +3,6 @@ use std::collections::BTreeMap;
 
 use crate::error::Error;
 
-pub type ResolveResult = Result<Option<CloudResource>, Error>;
-
 /// The resolved cloud resource ready for tagging.
 /// This is something in the cloud provider.
 /// It is the sibling to a Kubernetes resource.
@@ -27,6 +25,8 @@ pub enum CloudProvider {
 /// Any Kubernetes resource that can propagate labels to a cloud resource
 pub trait CloudTaggable: Resource + Clone + Send + Sync + 'static {
     /// Resolve the cloud resource (may require fetching intermediate resources)
-    fn resolve_cloud_resource(&self, client: &Client)
-    -> impl Future<Output = ResolveResult> + Send;
+    fn resolve_cloud_resource(
+        &self,
+        client: &Client,
+    ) -> impl Future<Output = Result<Option<CloudResource>, Error>> + Send;
 }

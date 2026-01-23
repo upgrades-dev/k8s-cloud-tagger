@@ -1,4 +1,5 @@
-use crate::traits::{CloudProvider, CloudResource, CloudTaggable, ResolveResult};
+use crate::error::Error;
+use crate::traits::{CloudProvider, CloudResource, CloudTaggable};
 use k8s_openapi::api::core::v1::{PersistentVolume, PersistentVolumeClaim};
 use kube::{Api, Client};
 
@@ -6,7 +7,7 @@ impl CloudTaggable for PersistentVolumeClaim {
     fn resolve_cloud_resource(
         &self,
         client: &Client,
-    ) -> impl Future<Output = ResolveResult> + Send {
+    ) -> impl Future<Output = Result<Option<CloudResource>, Error>> + Send {
         let pv_name = self.spec.as_ref().and_then(|s| s.volume_name.clone());
         let labels = self.metadata.labels.clone().unwrap_or_default();
         let client = client.clone();

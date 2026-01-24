@@ -3,6 +3,7 @@ use crate::error::Error;
 use crate::traits::CloudTaggable;
 use kube::runtime::controller::Action;
 use kube::{Client, Resource, ResourceExt};
+use std::borrow::Cow;
 use std::sync::Arc;
 
 pub struct Context {
@@ -14,10 +15,7 @@ pub async fn reconcile<T>(resource: Arc<T>, ctx: Arc<Context>) -> Result<Action,
 where
     T: CloudTaggable + ResourceExt + Resource<DynamicType = ()>,
 {
-    let kind = T::kind(&());
-    let name = resource.name_any();
-    let namespace = resource.namespace().unwrap_or_default();
-
+    let (kind, namespace, name) = resource_ref(resource.as_ref());
     tracing::debug!(%kind, %namespace, %name, "Reconciling");
 
     // Resolve the cloud resource (may need intermediate lookups)
@@ -26,6 +24,7 @@ where
     match cloud_resource {
         Some(cr) => {
             tracing::info!(
+                %kind, %namespace, %name,
                 provider = ?cr.provider,
                 resource_id = %cr.resource_id,
                 labels = ?cr.labels,
@@ -40,10 +39,24 @@ where
     }
 }
 
-pub fn error_policy<T>(_resource: Arc<T>, error: &Error, ctx: Arc<Context>) -> Action
+pub fn error_policy<T>(resource: Arc<T>, error: &Error, ctx: Arc<Context>) -> Action
 where
-    T: CloudTaggable,
+    T: CloudTaggable + ResourceExt + Resource<DynamicType = ()>,
 {
-    tracing::error!(%error, "Reconciliation error");
+    let (kind, namespace, name) = resource_ref(resource.as_ref());
+    tracing::error!(%kind, %namespace, %name, %error, "Reconciliation error");
     Action::requeue(ctx.config.requeue_error)
+}
+
+fn resource_ref<T>(resource: &T) -> (Cow<'_, str>, String, String)
+where
+    T: Resource<DynamicType = ()> + ResourceExt,
+{
+    (
+        T::kind(&()),
+        resource
+            .namespace()
+            .unwrap_or_else(|| "<cluster>".to_string()),
+        resource.name_any(),
+    )
 }

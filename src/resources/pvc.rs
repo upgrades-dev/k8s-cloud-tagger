@@ -14,6 +14,7 @@ impl CloudTaggable for PersistentVolumeClaim {
 
         async move {
             let Some(pv_name) = pv_name else {
+                // The claim doesn't have a PV associated with it yet.
                 return Ok(None);
             };
 

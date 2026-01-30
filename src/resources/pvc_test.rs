@@ -30,6 +30,20 @@ fn mock_pvc(pv_name: Option<&str>) -> PersistentVolumeClaim {
     }
 }
 
+fn mock_pv_not_understood(name: &str) -> PersistentVolume {
+    PersistentVolume {
+        metadata: ObjectMeta {
+            name: Some(name.into()),
+            ..Default::default()
+        },
+        spec: Some(PersistentVolumeSpec {
+            // Normally one field would be set here.
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
+}
+
 fn mock_pv_aws_csi(name: &str, volume_arn: &str) -> PersistentVolume {
     PersistentVolume {
         metadata: ObjectMeta {
@@ -52,6 +66,32 @@ fn mock_pv_aws_csi(name: &str, volume_arn: &str) -> PersistentVolume {
 async fn not_bound_returns_none() {
     let (client, _handle) = mock_client();
     let pvc = mock_pvc(None);
+
+    let result = pvc.resolve_cloud_resource(&client).await.unwrap();
+
+    assert!(result.is_none());
+}
+
+#[tokio::test]
+async fn pv_found_but_not_understood() {
+    let (client, mut handle) = mock_client();
+    let pvc = mock_pvc(Some("test-pv"));
+    let pv = mock_pv_not_understood("test-pv");
+
+    tokio::spawn(async move {
+        let (request, send) = handle.next_request().await.expect("expected a request");
+
+        // Given a bound claim, there must be a request to get the volume.
+        assert!(request.uri().path().contains("persistentvolumes"));
+
+        // Send a response back to the controller.
+        let body = serde_json::to_vec(&pv).unwrap();
+        let response = Response::builder()
+            .status(StatusCode::OK)
+            .body(Body::from(body))
+            .unwrap();
+        send.send_response(response);
+    });
 
     let result = pvc.resolve_cloud_resource(&client).await.unwrap();
 
@@ -89,4 +129,27 @@ async fn bound_returns_resource() {
         cr.resource_id,
         "arn:aws:ebs:us-east-1:123456789012:volume/vol-0123456789abcdef0"
     );
+}
+
+#[tokio::test]
+async fn pv_not_found_returns_error() {
+    let (client, mut handle) = mock_client();
+    let pvc = mock_pvc(Some("test-pv"));
+
+    tokio::spawn(async move {
+        let (_, send) = handle.next_request().await.expect("expected a request");
+
+        // Send a response back to the controller.
+        let response = Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::from(
+                r#"{"kind":"Status","code":404}"#.as_bytes().to_vec(),
+            ))
+            .unwrap();
+        send.send_response(response);
+    });
+
+    let result = pvc.resolve_cloud_resource(&client).await;
+
+    assert!(result.is_err());
 }

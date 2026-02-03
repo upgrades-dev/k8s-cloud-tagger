@@ -29,7 +29,7 @@ impl CloudTaggable for PersistentVolumeClaim {
             tracing::debug!(%resource_id, "Found volume");
 
             Ok(Some(CloudResource {
-                provider: CloudProvider::NoOneKnows,
+                provider: CloudProvider::Mock,
                 resource_id,
                 labels,
             }))

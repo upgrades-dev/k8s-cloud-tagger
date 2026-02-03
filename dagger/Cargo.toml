@@ -1,9 +1,0 @@
-[package]
-name = "k8s-cloud-tagger-dagger"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-dagger-sdk = "0.19.10"
-eyre = "0.6.12"
-tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }

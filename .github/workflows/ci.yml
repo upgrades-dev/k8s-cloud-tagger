@@ -25,15 +25,3 @@ jobs:
           components: rustfmt
       - name: Rustfmt Check
         uses: actions-rust-lang/rustfmt@v1
-
-  dagger:
-    name: dagger pipeline
-    needs: [test, formatting]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Run Dagger pipeline
-        run: |
-          cd dagger
-          cargo run

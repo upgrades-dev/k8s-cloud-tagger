@@ -17,5 +17,5 @@ jobs:
         with:
           version: v0.8.16
 
-      - name: Run kind integration tests
+      - name: Run Earthly ci tasks
         run: earthly --ci +ci

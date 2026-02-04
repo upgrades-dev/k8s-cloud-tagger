@@ -28,9 +28,6 @@ Thumbs.db
 *~
 .#*
 
-# Dagger
-dagger/.dagger/
-
 # Local testing
 kind-cluster/
 

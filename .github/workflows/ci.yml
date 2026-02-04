@@ -7,21 +7,15 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    name: cargo test
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo test --all-features
+      - uses: actions/checkout@v4
 
-  formatting:
-    name: cargo fmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Setup Earthly
+        uses: earthly/actions-setup@v1
         with:
-          components: rustfmt
-      - name: Rustfmt Check
-        uses: actions-rust-lang/rustfmt@v1
+          version: v0.8.16
+
+      - name: Run kind integration tests
+        run: earthly --ci +ci

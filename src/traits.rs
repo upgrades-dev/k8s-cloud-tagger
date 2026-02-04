@@ -15,11 +15,11 @@ pub struct CloudResource {
 
 #[derive(Debug, Clone)]
 pub enum CloudProvider {
-    NoOneKnows, // TODO(afharvey) figure cloud provider out later
-                // Linode,     // Also known as Akamai
-                // Aws,
-                // Azure,
-                // Gcp,
+    Mock, // For testing. Always success in the Cloud Provider API.
+          // Linode,     // Also known as Akamai
+          // Aws,
+          // Azure,
+          // Gcp,
 }
 
 /// Any Kubernetes resource that can propagate labels to a cloud resource

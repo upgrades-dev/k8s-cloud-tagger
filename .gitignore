@@ -1,6 +1,5 @@
 # Rust
 target/
-Cargo.lock
 **/*.rs.bk
 *.pdb
 *.rlib
@@ -27,9 +26,6 @@ Thumbs.db
 *.swo
 *~
 .#*
-
-# Dagger
-dagger/.dagger/
 
 # Local testing
 kind-cluster/

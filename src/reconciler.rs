@@ -1,10 +1,11 @@
 use crate::config::Config;
 use crate::error::Error;
+use crate::metrics::{ERRORS, RECONCILE_ACTIVE, RECONCILE_COUNT, RECONCILE_DURATION, labels};
 use crate::traits::CloudTaggable;
 use kube::runtime::controller::Action;
 use kube::{Client, Resource, ResourceExt};
-use std::borrow::Cow;
 use std::sync::Arc;
+use std::time::Instant;
 
 pub struct Context {
     pub client: Client,
@@ -15,9 +16,48 @@ pub async fn reconcile<T>(resource: Arc<T>, ctx: Arc<Context>) -> Result<Action,
 where
     T: CloudTaggable + ResourceExt + Resource<DynamicType = ()>,
 {
-    let (kind, namespace, name) = resource_ref(resource.as_ref());
+    let start = Instant::now();
+    let (kind, namespace, name) = resource_ref(resource.clone().as_ref());
+
+    RECONCILE_ACTIVE.with_label_values(&[&kind]).inc();
     tracing::debug!(%kind, %namespace, %name, "Reconciling");
 
+    let result = do_reconcile(resource, ctx.as_ref(), &kind, &namespace, &name).await;
+
+    RECONCILE_ACTIVE.with_label_values(&[&kind]).dec();
+    RECONCILE_DURATION
+        .with_label_values(&[&kind.as_str()])
+        .observe(start.elapsed().as_secs_f64());
+
+    match &result {
+        Ok(_) => {
+            RECONCILE_COUNT
+                .with_label_values(&[kind.as_str(), labels::SUCCESS])
+                .inc();
+        }
+        Err(e) => {
+            RECONCILE_COUNT
+                .with_label_values(&[kind.as_str(), labels::ERROR])
+                .inc();
+            ERRORS
+                .with_label_values(&[kind.as_str(), e.metric_label()])
+                .inc();
+        }
+    }
+
+    result
+}
+
+async fn do_reconcile<T>(
+    resource: Arc<T>,
+    ctx: &Context,
+    kind: &str,
+    namespace: &str,
+    name: &str,
+) -> Result<Action, Error>
+where
+    T: CloudTaggable + ResourceExt + Resource<DynamicType = ()>,
+{
     // Resolve the cloud resource (may need intermediate lookups)
     let cloud_resource = resource.resolve_cloud_resource(&ctx.client).await?;
 
@@ -48,12 +88,12 @@ where
     Action::requeue(ctx.config.requeue_error)
 }
 
-fn resource_ref<T>(resource: &T) -> (Cow<'_, str>, String, String)
+fn resource_ref<T>(resource: &T) -> (String, String, String)
 where
     T: Resource<DynamicType = ()> + ResourceExt,
 {
     (
-        T::kind(&()),
+        T::kind(&()).into_owned().to_lowercase(),
         resource
             .namespace()
             .unwrap_or_else(|| "<cluster>".to_string()),

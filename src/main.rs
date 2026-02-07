@@ -1,6 +1,7 @@
 mod config;
 mod error;
 mod health;
+mod metrics;
 mod reconciler;
 mod resources;
 mod traits;

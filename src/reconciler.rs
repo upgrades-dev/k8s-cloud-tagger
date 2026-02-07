@@ -1,3 +1,4 @@
+use crate::cloud::{CloudClient, MeteredClient};
 use crate::config::Config;
 use crate::error::Error;
 use crate::metrics::{ERRORS, RECONCILE_ACTIVE, RECONCILE_COUNT, RECONCILE_DURATION, labels};
@@ -7,14 +8,16 @@ use kube::{Client, Resource, ResourceExt};
 use std::sync::Arc;
 use std::time::Instant;
 
-pub struct Context {
+pub struct Context<C: CloudClient> {
     pub client: Client,
     pub config: Config,
+    pub cloud: MeteredClient<C>,
 }
 
-pub async fn reconcile<T>(resource: Arc<T>, ctx: Arc<Context>) -> Result<Action, Error>
+pub async fn reconcile<T, C>(resource: Arc<T>, ctx: Arc<Context<C>>) -> Result<Action, Error>
 where
     T: CloudTaggable + ResourceExt + Resource<DynamicType = ()>,
+    C: CloudClient,
 {
     let start = Instant::now();
     let (kind, namespace, name) = resource_ref(resource.clone().as_ref());
@@ -48,15 +51,16 @@ where
     result
 }
 
-async fn do_reconcile<T>(
+async fn do_reconcile<T, C>(
     resource: Arc<T>,
-    ctx: &Context,
+    ctx: &Context<C>,
     kind: &str,
     namespace: &str,
     name: &str,
 ) -> Result<Action, Error>
 where
     T: CloudTaggable + ResourceExt + Resource<DynamicType = ()>,
+    C: CloudClient,
 {
     // Resolve the cloud resource (may need intermediate lookups)
     let cloud_resource = resource.resolve_cloud_resource(&ctx.client).await?;
@@ -70,6 +74,10 @@ where
                 labels = ?cr.labels,
                 "Ready to tag cloud resource"
             );
+
+            // Calls the cloud provider API and sets tags on the resource.
+            ctx.cloud.set_tags(&cr.resource_id, &cr.labels).await?;
+
             Ok(Action::requeue(ctx.config.requeue_success))
         }
         None => {
@@ -79,9 +87,10 @@ where
     }
 }
 
-pub fn error_policy<T>(resource: Arc<T>, error: &Error, ctx: Arc<Context>) -> Action
+pub fn error_policy<T, C>(resource: Arc<T>, error: &Error, ctx: Arc<Context<C>>) -> Action
 where
     T: CloudTaggable + ResourceExt + Resource<DynamicType = ()>,
+    C: CloudClient,
 {
     let (kind, namespace, name) = resource_ref(resource.as_ref());
     tracing::error!(%kind, %namespace, %name, %error, "Reconciliation error");

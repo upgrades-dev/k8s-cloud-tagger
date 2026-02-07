@@ -15,6 +15,7 @@ futures = "0.3.31"
 axum = "0.8.8"
 http = "1.4.0"
 prometheus = "0.14.0"
+async-trait = "0.1.89"
 
 [dev-dependencies]
 tower-test = "0.4.0"

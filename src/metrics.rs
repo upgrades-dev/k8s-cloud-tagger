@@ -44,7 +44,7 @@ pub static ERRORS: LazyLock<IntCounterVec> = LazyLock::new(|| {
 });
 
 /// Duration of external API calls in seconds
-pub static _API_CALL_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
+pub static API_CALL_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
     register_histogram_vec!(
         "api_call_duration_seconds",
         "Duration of external API calls",

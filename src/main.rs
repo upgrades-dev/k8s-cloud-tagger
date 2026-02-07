@@ -1,3 +1,4 @@
+mod cloud;
 mod config;
 mod error;
 mod health;
@@ -6,6 +7,7 @@ mod reconciler;
 mod resources;
 mod traits;
 
+use crate::cloud::{MeteredClient, MockClient};
 use crate::reconciler::Context;
 use crate::reconciler::{error_policy, reconcile};
 use futures::StreamExt;
@@ -40,6 +42,7 @@ async fn main() -> anyhow::Result<()> {
     let ctx = Arc::new(Context {
         client: client.clone(),
         config: cfg,
+        cloud: MeteredClient::new(MockClient::default()),
     });
 
     let pvc_ctrl = controller!(PersistentVolumeClaim, client, ctx);

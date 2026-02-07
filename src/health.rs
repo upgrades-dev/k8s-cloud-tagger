@@ -1,4 +1,4 @@
-use axum::{http::StatusCode, routing::get, Router};
+use axum::{Router, http::StatusCode, routing::get};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 

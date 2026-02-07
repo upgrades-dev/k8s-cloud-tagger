@@ -1,10 +1,8 @@
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::time::Duration;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-const DEFAULT_PROBE_ADDR: SocketAddr = SocketAddr::new(
-    IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-    8080,
-);
+const DEFAULT_PROBE_ADDR: SocketAddr =
+    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8080));
 
 pub struct Config {
     pub requeue_success: Duration,

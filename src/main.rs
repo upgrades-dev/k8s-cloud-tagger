@@ -1,9 +1,9 @@
 mod config;
 mod error;
+mod health;
 mod reconciler;
 mod resources;
 mod traits;
-mod health;
 
 use crate::reconciler::Context;
 use crate::reconciler::{error_policy, reconcile};

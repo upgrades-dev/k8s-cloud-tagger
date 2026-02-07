@@ -16,10 +16,20 @@ async fn readyz() -> StatusCode {
     StatusCode::OK
 }
 
+/// Prometheus metrics endpoint
+async fn metrics() -> (StatusCode, String) {
+    let encoder = prometheus::TextEncoder::new();
+    match encoder.encode_to_string(&prometheus::gather()) {
+        Ok(s) => (StatusCode::OK, s),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+    }
+}
+
 pub async fn serve(addr: SocketAddr) -> anyhow::Result<()> {
     let app = Router::new()
         .route("/healthz", get(healthz))
-        .route("/readyz", get(readyz));
+        .route("/readyz", get(readyz))
+        .route("/metrics", get(metrics));
 
     let listener = TcpListener::bind(addr).await?;
     tracing::debug!(%addr, "Health server listening");

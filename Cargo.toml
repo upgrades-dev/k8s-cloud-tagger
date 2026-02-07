@@ -14,6 +14,7 @@ anyhow = "1.0.100"
 futures = "0.3.31"
 axum = "0.8.8"
 http = "1.4.0"
+prometheus = "0.14.0"
 
 [dev-dependencies]
 tower-test = "0.4.0"

@@ -2,6 +2,11 @@ use prometheus::{HistogramVec, IntCounterVec, IntGaugeVec};
 use prometheus::{register_histogram_vec, register_int_counter_vec, register_int_gauge_vec};
 use std::sync::LazyLock;
 
+pub mod labels {
+    pub const SUCCESS: &str = "success";
+    pub const ERROR: &str = "error";
+}
+
 /// Total reconciliations by resource and outcome (success/error)
 pub static RECONCILE_COUNT: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec!(

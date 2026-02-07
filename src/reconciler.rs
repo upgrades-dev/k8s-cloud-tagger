@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::error::Error;
-use crate::metrics::{ERRORS, RECONCILE_ACTIVE, RECONCILE_COUNT, RECONCILE_DURATION};
+use crate::metrics::{ERRORS, RECONCILE_ACTIVE, RECONCILE_COUNT, RECONCILE_DURATION, labels};
 use crate::traits::CloudTaggable;
 use kube::runtime::controller::Action;
 use kube::{Client, Resource, ResourceExt};
@@ -32,12 +32,12 @@ where
     match &result {
         Ok(_) => {
             RECONCILE_COUNT
-                .with_label_values(&[kind.as_str(), "success"])
+                .with_label_values(&[kind.as_str(), labels::SUCCESS])
                 .inc();
         }
         Err(e) => {
             RECONCILE_COUNT
-                .with_label_values(&[kind.as_str(), "error"])
+                .with_label_values(&[kind.as_str(), labels::ERROR])
                 .inc();
             ERRORS
                 .with_label_values(&[kind.as_str(), e.metric_label()])

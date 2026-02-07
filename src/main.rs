@@ -3,6 +3,7 @@ mod error;
 mod reconciler;
 mod resources;
 mod traits;
+mod health;
 
 use crate::reconciler::Context;
 use crate::reconciler::{error_policy, reconcile};
@@ -31,15 +32,19 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Starting k8s-cloud-tagger");
 
+    let cfg = config::Config::from_env();
+    let probe_addr = cfg.probe_addr;
+
     let client = Client::try_default().await?;
     let ctx = Arc::new(Context {
         client: client.clone(),
-        config: config::Config::from_env(),
+        config: cfg,
     });
 
     let pvc_ctrl = controller!(PersistentVolumeClaim, client, ctx);
 
     tokio::select! {
+        result = health::serve(probe_addr) => result?,
         _ = pvc_ctrl => {}
         _ = signal::ctrl_c() => tracing::debug!("Shutting down"),
     }

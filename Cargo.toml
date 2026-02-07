@@ -12,6 +12,8 @@ tracing = "0.1.44"
 tracing-subscriber = "0.3.22"
 anyhow = "1.0.100"
 futures = "0.3.31"
+axum = "0.8.8"
+http = "1.4.0"
 
 [dev-dependencies]
 tower-test = "0.4.0"

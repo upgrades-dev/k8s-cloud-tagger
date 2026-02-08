@@ -1,35 +1,53 @@
 VERSION 0.8
 
-IMPORT ./build/rust AS rust
-IMPORT ./build/image AS image
-IMPORT ./build/ci AS ci
+ARG --global VERSION=dev
+ARG --global IMAGE_DEV=quay.io/upgrades/k8s-cloud-tagger-dev
 
-# Dev commands
+rust-base:
+    FROM rust:1.93
+    WORKDIR /app
+    RUN rustup component add rustfmt clippy
+    COPY --dir src Cargo.toml Cargo.lock .
+    CACHE /usr/local/cargo/registry
+
 fmt:
-    BUILD rust+fmt
+    FROM +rust-base
+    RUN cargo fmt --check
+
+build:
+    FROM +rust-base
+    RUN cargo build --all-targets --tests
+    SAVE ARTIFACT target
 
 clippy:
-    BUILD rust+clippy
+    FROM +rust-base
+    COPY +build/target ./target
+    RUN cargo clippy -- -D warnings
 
 test:
-    BUILD rust+test
+    FROM +rust-base
+    COPY +build/target ./target
+    RUN cargo test
 
-# CI
 ci:
-    BUILD ci+ci
+    BUILD +fmt
+    BUILD +clippy
+    BUILD +test
 
-ci-all:
-    BUILD ci+ci-all
+# --- Release binary (static, amd64) ---
 
-# Images
+build-release:
+    FROM +rust-base
+    RUN rustup target add x86_64-unknown-linux-musl
+    RUN apt-get update && apt-get install -y musl-tools
+    RUN cargo build --release --target x86_64-unknown-linux-musl
+    SAVE ARTIFACT target/x86_64-unknown-linux-musl/release/k8s-cloud-tagger
+
+# --- Dev image ---
+
 image-dev:
-    ARG VERSION=dev
-    BUILD image+dev --VERSION=${VERSION}
-
-image-prod:
-    ARG VERSION
-    BUILD image+prod --VERSION=${VERSION}
-
-# Artifacts
-sbom:
-    BUILD ci+sbom
+    FROM cgr.dev/chainguard/static:latest
+    COPY +build-release/k8s-cloud-tagger /k8s-cloud-tagger
+    USER nonroot:nonroot
+    ENTRYPOINT ["/k8s-cloud-tagger"]
+    SAVE IMAGE --push ${IMAGE_DEV}:${VERSION}

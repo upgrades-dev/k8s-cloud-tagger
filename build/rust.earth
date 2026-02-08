@@ -1,0 +1,48 @@
+VERSION 0.8
+
+ARG --global TARGETARCH=amd64
+
+rust-base:
+    FROM rust:1.84
+    WORKDIR /app
+    RUN rustup component add rustfmt clippy
+    COPY --dir src Cargo.toml Cargo.lock .
+    CACHE /usr/local/cargo/registry
+
+fmt:
+    FROM +rust-base
+    RUN cargo fmt --check
+
+build:
+    FROM +rust-base
+    CACHE /app/target
+    RUN cargo build --all-targets --tests
+    SAVE ARTIFACT target
+
+clippy:
+    FROM +rust-base
+    COPY +build/target ./target
+    RUN cargo clippy -- -D warnings
+
+test:
+    FROM +rust-base
+    COPY +build/target ./target
+    RUN cargo test
+
+build-release:
+    FROM +rust-base
+
+    IF [ "$TARGETARCH" = "amd64" ]
+        ARG RUST_TARGET=x86_64-unknown-linux-musl
+    ELSE IF [ "$TARGETARCH" = "arm64" ]
+        ARG RUST_TARGET=aarch64-unknown-linux-musl
+    END
+
+    RUN rustup target add $RUST_TARGET
+    RUN apt-get update && apt-get install -y musl-tools
+
+    CACHE /app/target
+
+    RUN cargo build --release --target $RUST_TARGET
+
+    SAVE ARTIFACT target/$RUST_TARGET/release/k8s-cloud-tagger

@@ -1,32 +1,35 @@
 VERSION 0.8
 
-rust-base:
-    FROM rust:1.93
-    WORKDIR /app
-    RUN rustup component add rustfmt clippy
-    COPY --dir src Cargo.toml Cargo.lock .
-    CACHE /usr/local/cargo/registry
+IMPORT ./build/rust AS rust
+IMPORT ./build/image AS image
+IMPORT ./build/ci AS ci
 
+# Dev commands
 fmt:
-    FROM +rust-base
-    RUN cargo fmt --check
-
-build:
-    FROM +rust-base
-    RUN cargo build --all-targets --tests
-    SAVE ARTIFACT target
+    BUILD rust+fmt
 
 clippy:
-    FROM +rust-base
-    COPY +build/target ./target
-    RUN cargo clippy -- -D warnings
+    BUILD rust+clippy
 
 test:
-    FROM +rust-base
-    COPY +build/target ./target
-    RUN cargo test
+    BUILD rust+test
 
+# CI
 ci:
-    BUILD +fmt
-    BUILD +clippy
-    BUILD +test
+    BUILD ci+ci
+
+ci-all:
+    BUILD ci+ci-all
+
+# Images
+image-dev:
+    ARG VERSION=dev
+    BUILD image+dev --VERSION=${VERSION}
+
+image-prod:
+    ARG VERSION
+    BUILD image+prod --VERSION=${VERSION}
+
+# Artifacts
+sbom:
+    BUILD ci+sbom

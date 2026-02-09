@@ -9,17 +9,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Earthly
-        uses: earthly/actions-setup@v1
+      - name: Setup Nix
+        uses: cachix/install-nix-action@v27
         with:
-          version: v0.8.16
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Login to Quay
-        uses: docker/login-action@v3
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD }}
+      - name: Build image
+        run: nix build .#image-dev
 
       - name: Push to dev registry
-        run: earthly --push +image-dev --VERSION=sha-$(git rev-parse --short HEAD)
+        run: |
+          skopeo login quay.io -u "${{ secrets.QUAY_USERNAME }}" -p "${{ secrets.QUAY_PASSWORD }}"
+          skopeo copy docker-archive:result "docker://quay.io/upgrades/k8s-cloud-tagger-dev:sha-$(git rev-parse --short HEAD)"

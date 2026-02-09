@@ -14,3 +14,17 @@ nix develop
 
 # Enable flakes (if not already)
 echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+
+# Avoid rate limits
+echo "access-tokens = github.com=$(gh auth token)" >> ~/.config/nix/nix.conf
+
+# If you get a ton of 429 or 500 errors
+nix flake check --refresh
+
+# Success
+Ignoring warnings, this is what success looks like.
+
+```
+nix flake check 
+Use '--all-systems' to check all.
+```

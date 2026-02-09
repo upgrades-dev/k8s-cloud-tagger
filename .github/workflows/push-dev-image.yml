@@ -1,0 +1,25 @@
+name: Push Dev Image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  push-dev:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Earthly
+        uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.16
+
+      - name: Login to Quay
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Push to dev registry
+        run: earthly --push +image-dev --VERSION=sha-$(git rev-parse --short HEAD)

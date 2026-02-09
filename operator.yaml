@@ -12,7 +12,7 @@ metadata:
   name: k8s-cloud-tagger
 rules:
   - apiGroups: [""]
-    resources: ["pods", "configmaps", "persistentvolumeclaims"]
+    resources: ["pods", "configmaps"]
     verbs: ["get", "list", "watch", "update", "patch"]
   - apiGroups: [""]
     resources: ["persistentvolumeclaims"]

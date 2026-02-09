@@ -4,5 +4,5 @@ resources:
   - operator.yaml
 images:
   - name: image
-    newName: k8s-cloud-tagger
+    newName: quay.io/upgrades/k8s-cloud-tagger-dev
     newTag: dev

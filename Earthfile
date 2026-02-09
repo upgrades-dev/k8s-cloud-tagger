@@ -50,14 +50,16 @@ image-dev:
     COPY +build-release/k8s-cloud-tagger /k8s-cloud-tagger
     USER nonroot:nonroot
     ENTRYPOINT ["/k8s-cloud-tagger"]
+    # push is not intended for local dev, only for CI
+    # push is ignored locally because --push has to be passed on the command line
     SAVE IMAGE --push ${IMAGE_DEV}:${VERSION}
 
 # --- Dev run ---
 dev-up:
     LOCALLY
     BUILD +image-dev
-    RUN kubectl apply -k .
+    RUN kubectl apply --kustomize .
 
 dev-down:
     LOCALLY
-    RUN kubectl delete -k .
+    RUN kubectl delete --ignore-not-found=true --kustomize .

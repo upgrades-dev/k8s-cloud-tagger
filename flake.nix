@@ -177,6 +177,20 @@
           packages = with pkgs; [
             skopeo # Push images without Docker daemon
           ];
+
+          # Message of the day
+          shellHook = ''
+            cat << 'EOF'
+
+            __  _____  ________  ___   ___  ________
+           / / / / _ \/ ___/ _ \/ _ | / _ \/ __/ __/
+          / /_/ / ___/ (_ / , _/ __ |/ // / _/_\ \
+          \____/_/   \___/_/|_/_/ |_/____/___/___/
+
+          EOF
+            echo "entering k8s-cloud-tagger dev shell..."
+          '';
+
         };
       });
 }

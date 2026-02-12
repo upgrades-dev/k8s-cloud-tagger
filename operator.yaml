@@ -15,7 +15,7 @@ rules:
     resources: ["pods", "configmaps"]
     verbs: ["get", "list", "watch", "update", "patch"]
   - apiGroups: [""]
-    resources: ["persistentvolumeclaims"]
+    resources: ["persistentvolumeclaims", "persistentvolumes"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
     resources: ["deployments"]

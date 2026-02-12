@@ -90,10 +90,17 @@
         # - Change src/*.rs -> reuse cached deps, rebuild source only
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
+        # Cached deps for musl toolchain (used by static binary)
+        cargoArtifactsMusl = craneLibMusl.buildDepsOnly (commonArgs // {
+          CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+          CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+        });
+
         # Static musl binary for container images
         # - No glibc dependency
         # - Runs on scratch/distroless/chainguard-static bases
         binaryMusl = craneLibMusl.buildPackage (commonArgs // {
+          cargoArtifacts = cargoArtifactsMusl;
           CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
           CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
         });

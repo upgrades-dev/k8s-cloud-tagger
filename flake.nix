@@ -1,5 +1,5 @@
 {
-  description = "k8s-cloud-tagger - Kubernetes PVC tagging controller";
+  description = "k8s-cloud-tagger - Kubernetes resources tagged in your cloud provider";
 
   # ============================================================================
   # INPUTS
@@ -30,7 +30,7 @@
   # What this flake provides: checks, packages, devShells
   # ============================================================================
   outputs = { self, nixpkgs, crane, fenix, flake-utils, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
+    flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
@@ -98,6 +98,18 @@
           CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
         });
 
+        # ----------------------------------------------------------------------
+        # Chainguard Static Base Image (pinned)
+        # Update with: nix-prefetch-docker --image-name cgr.dev/chainguard/static --image-tag latest
+        # ----------------------------------------------------------------------
+        chainguardStatic = pkgs.dockerTools.pullImage {
+          imageName = "cgr.dev/chainguard/static";
+          imageDigest = "sha256:9cef3c6a78264cb7e25923bf1bf7f39476dccbcc993af9f4ffeb191b77a7951e";
+          hash = "sha256-0/N09XBMjLil6X9yQMczPi3NYEk31/g8Ghmm7TRXsdc=";
+          finalImageName = "cgr.dev/chainguard/static";
+          finalImageTag = "latest";
+        };
+
       in
       {
         # ======================================================================
@@ -136,30 +148,20 @@
           # Build with: nix build .#binary-static
           binary-static = binaryMusl;
 
-          # OCI container image (tarball)
+          # OCI container image (tarball) based on Chainguard static
           # Build with: nix build .#image-dev
-          # Load with: docker load < result
           # Push with: skopeo copy docker-archive:result docker://quay.io/...
           image-dev = pkgs.dockerTools.buildImage {
             name = "quay.io/upgrades/k8s-cloud-tagger-dev";
             tag = "dev";
 
-            # Image contents (minimal - just CA certs for TLS)
-            copyToRoot = pkgs.buildEnv {
-              name = "image-root";
-              paths = [
-                pkgs.cacert # CA certificates for HTTPS connections
-              ];
-              pathsToLink = [ "/etc" ];
-            };
+            # Chainguard static base (provides CA certs, tzdata, nonroot user)
+            fromImage = chainguardStatic;
 
             # Container configuration
             config = {
               Entrypoint = [ "${binaryMusl}/bin/k8s-cloud-tagger" ];
-              User = "65532:65532"; # nonroot (matches chainguard/distroless convention)
-              Env = [
-                "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
-              ];
+              User = "nonroot:nonroot";
             };
           };
         };
@@ -175,6 +177,7 @@
 
           # Additional packages for development
           packages = with pkgs; [
+            nix-prefetch-docker  # Provides nix-prefetch-docker
             skopeo # Push images without Docker daemon
           ];
 

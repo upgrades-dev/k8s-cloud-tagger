@@ -4,6 +4,10 @@ target/
 *.pdb
 *.rlib
 
+# Nix
+result
+result-*
+
 # IntelliJ IDEA
 .idea/
 *.iml

@@ -7,19 +7,51 @@ jobs:
   push-dev:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Setup Earthly
-        uses: earthly/actions-setup@v1
+      - name: Setup Nix
+        uses: cachix/install-nix-action@v31
         with:
-          version: v0.8.16
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Login to Quay
-        uses: docker/login-action@v3
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD }}
+      - name: Run checks
+        run: nix flake check
+
+      - name: Build image
+        run: nix build .#image-dev
 
       - name: Push to dev registry
-        run: earthly --push +image-dev --VERSION=sha-$(git rev-parse --short HEAD)
+        id: push
+        run: |
+          TAG="sha-$(git rev-parse --short HEAD)"
+          IMAGE="quay.io/upgrades/k8s-cloud-tagger-dev:${TAG}"
+
+          nix develop -c skopeo login quay.io -u "${{ secrets.QUAY_USERNAME }}" -p "${{ secrets.QUAY_PASSWORD }}"
+          nix develop -c skopeo copy docker-archive:result "docker://${IMAGE}"
+
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          ## 🚀 Dev Image Pushed
+
+          | | |
+          | --- | --- |
+          | **Image** | \`${{ steps.push.outputs.image }}\` |
+          | **Tag** | \`${{ steps.push.outputs.tag }}\` |
+          | **Registry** | [Quay.io](https://quay.io/repository/upgrades/k8s-cloud-tagger-dev?tab=tags) |
+
+          ### Pull
+
+          \`\`\`bash
+          docker pull ${{ steps.push.outputs.image }}
+          \`\`\`
+
+          ### Run
+
+          \`\`\`bash
+          docker run --rm ${{ steps.push.outputs.image }}
+          \`\`\`
+          EOF

@@ -7,16 +7,105 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Setup Earthly
-        uses: earthly/actions-setup@v1
+      - name: Setup Nix
+        uses: cachix/install-nix-action@v31
         with:
-          version: v0.8.16
-          use-cache: false
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run Earthly ci tasks
-        run: earthly --ci +ci
+      - name: Fmt
+        id: fmt
+        run: nix build .#checks.x86_64-linux.fmt
+
+      - name: Clippy
+        id: clippy
+        if: success() || failure()
+        run: nix build .#checks.x86_64-linux.clippy
+
+      - name: Test
+        id: test
+        if: success() || failure()
+        run: nix build .#checks.x86_64-linux.test
+
+      - name: Build
+        id: build
+        if: success() || failure()
+        run: nix build .#binary-static
+
+      - name: Summary
+        if: always()
+        run: |
+          fmt="${{ steps.fmt.outcome }}"
+          clippy="${{ steps.clippy.outcome }}"
+          test="${{ steps.test.outcome }}"
+          build="${{ steps.build.outcome }}"
+
+          icon() { [[ "$1" == "success" ]] && echo "✅" || echo "❌"; }
+
+          # Overall result
+          if [[ "$fmt" == "success" && "$clippy" == "success" && "$test" == "success" && "$build" == "success" ]]; then
+            header="## ✅ CI Passed"
+          else
+            header="## ❌ CI Failed"
+          fi
+
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          ${header}
+
+          | Check | Result |
+          | --- | --- |
+          | Formatting | $(icon "$fmt") \`cargo fmt\` |
+          | Linting | $(icon "$clippy") \`cargo clippy\` |
+          | Tests | $(icon "$test") \`cargo test\` |
+          | Build | $(icon "$build") \`static musl binary\` |
+
+          EOF
+
+          # Add failure hints
+          if [[ "$fmt" != "success" ]]; then
+            cat >> "$GITHUB_STEP_SUMMARY" << 'EOF'
+          ### 🔧 Fix formatting
+
+          ```bash
+          cargo fmt
+          ```
+
+          EOF
+          fi
+
+          if [[ "$clippy" != "success" ]]; then
+            cat >> "$GITHUB_STEP_SUMMARY" << 'EOF'
+          ### 🔧 Fix clippy warnings
+
+          ```bash
+          cargo clippy --all-targets -- -D warnings
+          ```
+
+          EOF
+          fi
+
+          if [[ "$test" != "success" ]]; then
+            cat >> "$GITHUB_STEP_SUMMARY" << 'EOF'
+          ### 🔧 Fix tests
+
+          ```bash
+          cargo test
+          ```
+
+          EOF
+          fi
+
+          if [[ "$build" != "success" ]]; then
+            cat >> "$GITHUB_STEP_SUMMARY" << 'EOF'
+          ### 🔧 Fix build
+
+          ```bash
+          nix build .#binary-static
+          ```
+
+          EOF
+          fi

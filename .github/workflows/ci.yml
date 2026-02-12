@@ -63,10 +63,10 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          fmt="${{ needs.fmt.outcome }}"
-          clippy="${{ needs.clippy.outcome }}"
-          test="${{ needs.test.outcome }}"
-          build="${{ needs.build.outcome }}"
+          fmt="${{ needs.fmt.result }}"
+          clippy="${{ needs.clippy.result }}"
+          test="${{ needs.test.result }}"
+          build="${{ needs.build.result }}"
 
           icon() { [[ "$1" == "success" ]] && echo "✅" || echo "❌"; }
 

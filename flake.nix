@@ -176,7 +176,7 @@
         # ======================================================================
         # DEV SHELL
         # Enter with: nix develop
-        # Provides: cargo, rustc, rustfmt, clippy, rust-analyzer
+        # Provides all the tools for running CI tasks locally.
         # ======================================================================
         devShells.default = craneLib.devShell {
           # Include all check inputs (gives you the same tools CI uses)
@@ -184,6 +184,7 @@
 
           # Additional packages for development
           packages = with pkgs; [
+            kubernetes-helm      # Helm CLI
             nix-prefetch-docker  # Provides nix-prefetch-docker
             skopeo # Push images without Docker daemon
           ];

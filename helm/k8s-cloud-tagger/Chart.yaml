@@ -1,0 +1,28 @@
+apiVersion: v2
+name: k8s-cloud-tagger
+description: >-
+  Watch Kubernetes resource labels and automatically propagate them
+  as tags to AWS, GCP, and Azure cloud resources
+type: application
+version: 0.1.0
+appVersion: 0.1.0
+kubeVersion: ">=1.33.0"
+home: https://github.com/upgrades-dev/k8s-cloud-tagger
+icon: https://raw.githubusercontent.com/upgrades-dev/k8s-cloud-tagger/main/logo.png
+sources:
+  - https://github.com/upgrades-dev/k8s-cloud-tagger
+maintainers:
+  - name: upgrades-dev
+    url: https://upgrades.dev
+keywords:
+  - kubernetes
+  - cloud
+  - tags
+  - labels
+  - aws
+  - gcp
+  - azure
+annotations:
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/category: integration
+dependencies: []

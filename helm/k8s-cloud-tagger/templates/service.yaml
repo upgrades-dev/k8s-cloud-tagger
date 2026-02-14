@@ -1,0 +1,22 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "k8s-cloud-tagger.fullname" . }}
+  labels:
+    {{- include "k8s-cloud-tagger.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+  {{- with .Values.serviceMonitor.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "k8s-cloud-tagger.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+{{- end }}

@@ -30,3 +30,12 @@ Run all CI tasks:
 ```bash
 nix build
 ```
+
+### Helm Template
+
+To get the raw Kubernetes manifests:
+
+```bash
+nix develop
+helm template k8s-cloud-tagger helm/k8s-cloud-tagger/ --set serviceMonitor.enabled=true
+```

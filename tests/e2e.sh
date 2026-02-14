@@ -4,13 +4,21 @@ set -euo pipefail
 CLUSTER_NAME="k8s-cloud-tagger-e2e"
 NAMESPACE="k8s-cloud-tagger"
 IMAGE_NAME="quay.io/upgrades/k8s-cloud-tagger-dev:dev"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KEEP_CLUSTER="${KEEP_CLUSTER:-false}"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 cleanup() {
-  echo "==> Deleting Kind cluster..."
-  kind delete cluster --name "${CLUSTER_NAME}" 2>/dev/null || true
+  if [ "${KEEP_CLUSTER}" = "true" ]; then
+    echo ""
+    echo "==> Cluster kept: ${CLUSTER_NAME}"
+    echo "    export KUBECONFIG=\"$(kind get kubeconfig-path --name ${CLUSTER_NAME} 2>/dev/null || echo '~/.kube/config')\""
+    echo "    kubectl --context kind-${CLUSTER_NAME} get pods -A"
+    echo "    kind delete cluster --name ${CLUSTER_NAME}  # clean up when done"
+  else
+    echo "==> Deleting Kind cluster..."
+    kind delete cluster --name "${CLUSTER_NAME}" 2>/dev/null || true
+  fi
 }
 
 fail() {

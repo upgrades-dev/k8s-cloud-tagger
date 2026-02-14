@@ -168,9 +168,31 @@
             # Container configuration
             config = {
               Entrypoint = [ "${binaryMusl}/bin/k8s-cloud-tagger" ];
-              User = "nonroot:nonroot";
+              User = "65532:65532";
             };
           };
+        };
+
+        # ======================================================================
+        # APPS
+        # ======================================================================
+        apps.kind-test = {
+          type = "app";
+          program = toString (pkgs.writeShellScript "kind-test" ''
+            set -euo pipefail
+            export PATH="${pkgs.lib.makeBinPath (with pkgs; [ kind kubectl kubernetes-helm jq ])}:''$PATH"
+            export CHART_PATH="${./helm/k8s-cloud-tagger}"
+            export FIXTURES_PATH="${./tests/fixtures}"
+
+            if [ -z "''${IMAGE:-}" ]; then
+              echo "==> Building image..."
+              export IMAGE_ARCHIVE
+              IMAGE_ARCHIVE=$(nix build .#image-dev --no-link --print-out-paths)
+              export IMAGE="quay.io/upgrades/k8s-cloud-tagger-dev:dev"
+            fi
+
+            exec ${./tests/e2e.sh} "$@"
+          '');
         };
 
         # ======================================================================
@@ -184,6 +206,9 @@
 
           # Additional packages for development
           packages = with pkgs; [
+            kind
+            kubectl
+            jq
             kubernetes-helm      # Helm CLI
             nix-prefetch-docker  # Provides nix-prefetch-docker
             skopeo # Push images without Docker daemon

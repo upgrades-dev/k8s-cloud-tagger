@@ -2,6 +2,11 @@
 # k8s-cloud-tagger — default values
 # =============================================================================
 
+# -- Kubernetes deployment
+deployment:
+  # env.RUST_LOG="debug" to enable debug logging
+  env: {}
+
 # -- Container image
 image:
   repository: quay.io/upgrades/k8s-cloud-tagger

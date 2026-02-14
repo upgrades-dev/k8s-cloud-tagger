@@ -34,6 +34,9 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
         seccompProfile:
           type: RuntimeDefault
       terminationGracePeriodSeconds: 10
@@ -41,6 +44,13 @@ spec:
         - name: controller
           image: {{ include "k8s-cloud-tagger.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.deployment.env }}
+          env:
+            {{- range $key, $value := .Values.deployment.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
           ports:
             - name: http
               containerPort: 8080
@@ -64,12 +74,9 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-            runAsNonRoot: true
             capabilities:
               drop:
                 - ALL
-            seccompProfile:
-              type: RuntimeDefault
           volumeMounts:
             - name: sa-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
@@ -83,7 +90,6 @@ spec:
             sources:
               - serviceAccountToken:
                   expirationSeconds: 3600
-                  audience: api
                   path: token
               - configMap:
                   name: kube-root-ca.crt

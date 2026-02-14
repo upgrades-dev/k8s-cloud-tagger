@@ -174,6 +174,23 @@
         };
 
         # ======================================================================
+        # APPS
+        # ======================================================================
+        apps.kind-test = {
+          type = "app";
+          program = toString (pkgs.writeShellScript "kind-test" ''
+            set -euo pipefail
+            export PATH="${pkgs.lib.makeBinPath (with pkgs; [ kind kubectl kubernetes-helm jq ])}:''$PATH"
+            export CHART_PATH="${./helm/k8s-cloud-tagger}"
+            export FIXTURES_PATH="${./tests/fixtures}"
+            exec ${./tests/e2e.sh} "$@"
+          '');
+        };
+
+
+
+
+        # ======================================================================
         # DEV SHELL
         # Enter with: nix develop
         # Provides all the tools for running CI tasks locally.
@@ -184,6 +201,9 @@
 
           # Additional packages for development
           packages = with pkgs; [
+            kind
+            kubectl
+            jq
             kubernetes-helm      # Helm CLI
             nix-prefetch-docker  # Provides nix-prefetch-docker
             skopeo # Push images without Docker daemon

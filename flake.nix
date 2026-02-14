@@ -168,7 +168,7 @@
             # Container configuration
             config = {
               Entrypoint = [ "${binaryMusl}/bin/k8s-cloud-tagger" ];
-              User = "nonroot:nonroot";
+              User = "65532:65532";
             };
           };
         };

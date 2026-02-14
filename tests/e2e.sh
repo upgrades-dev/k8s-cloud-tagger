@@ -3,8 +3,11 @@ set -euo pipefail
 
 CLUSTER_NAME="k8s-cloud-tagger-e2e"
 NAMESPACE="k8s-cloud-tagger"
-IMAGE_NAME="quay.io/upgrades/k8s-cloud-tagger-dev:dev"
 KEEP_CLUSTER="${KEEP_CLUSTER:-false}"
+IMAGE="${IMAGE:-}"
+
+LOCAL_REPO="quay.io/upgrades/k8s-cloud-tagger"
+LOCAL_TAG="dev"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -12,8 +15,8 @@ cleanup() {
   if [ "${KEEP_CLUSTER}" = "true" ]; then
     echo ""
     echo "==> Cluster kept: ${CLUSTER_NAME}"
-    echo "    export KUBECONFIG=\"$(kind get kubeconfig-path --name ${CLUSTER_NAME} 2>/dev/null || echo '~/.kube/config')\""
-    echo "    kubectl --context kind-${CLUSTER_NAME} get pods -A"
+    echo "    kind export kubeconfig --name ${CLUSTER_NAME}"
+    echo "    kubectl get pods -A"
     echo "    kind delete cluster --name ${CLUSTER_NAME}  # clean up when done"
   else
     echo "==> Deleting Kind cluster..."
@@ -33,8 +36,20 @@ kind create cluster --name "${CLUSTER_NAME}" --wait 60s
 
 trap cleanup EXIT
 
-echo "==> Loading image into Kind..."
-kind load docker-image "${IMAGE_NAME}" --name "${CLUSTER_NAME}"
+# ── Image loading ────────────────────────────────────────────────────────────
+
+if [ -n "${IMAGE}" ]; then
+  IMAGE_REPO="${IMAGE%%:*}"
+  IMAGE_TAG="${IMAGE##*:}"
+  PULL_POLICY="IfNotPresent"
+  echo "==> Using remote image: ${IMAGE_REPO}:${IMAGE_TAG}"
+else
+  IMAGE_REPO="${LOCAL_REPO}"
+  IMAGE_TAG="${LOCAL_TAG}"
+  PULL_POLICY="Never"
+  echo "==> Loading local image into Kind..."
+  kind load image-archive "${IMAGE_ARCHIVE}" --name "${CLUSTER_NAME}"
+fi
 
 # ── Deploy controller in test mode ──────────────────────────────────────────
 
@@ -43,7 +58,9 @@ helm install k8s-cloud-tagger "${CHART_PATH}" \
   --namespace "${NAMESPACE}" \
   --create-namespace \
   --set cloudProvider=test \
-  --set image.tag=dev \
+  --set image.repository="${IMAGE_REPO}" \
+  --set image.tag="${IMAGE_TAG}" \
+  --set image.pullPolicy="${PULL_POLICY}" \
   --wait \
   --timeout 60s
 

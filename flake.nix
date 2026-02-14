@@ -183,12 +183,10 @@
             export PATH="${pkgs.lib.makeBinPath (with pkgs; [ kind kubectl kubernetes-helm jq ])}:''$PATH"
             export CHART_PATH="${./helm/k8s-cloud-tagger}"
             export FIXTURES_PATH="${./tests/fixtures}"
+            export IMAGE_ARCHIVE="${self.packages.${system}.image-dev}"
             exec ${./tests/e2e.sh} "$@"
           '');
         };
-
-
-
 
         # ======================================================================
         # DEV SHELL

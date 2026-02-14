@@ -13,6 +13,7 @@ use crate::reconciler::{error_policy, reconcile};
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::PersistentVolumeClaim;
 use kube::runtime::Controller;
+use kube::runtime::events::Reporter;
 use kube::runtime::watcher::Config;
 use kube::{Api, Client};
 use std::sync::Arc;
@@ -39,10 +40,17 @@ async fn main() -> anyhow::Result<()> {
     let probe_addr = cfg.probe_addr;
 
     let client = Client::try_default().await?;
+
+    let reporter = Reporter {
+        controller: "k8s-cloud-tagger".to_string(),
+        instance: std::env::var("POD_NAME").ok(),
+    };
+
     let ctx = Arc::new(Context {
         client: client.clone(),
         config: cfg,
         cloud: MeteredClient::new(MockClient::default()),
+        reporter,
     });
 
     let pvc_ctrl = controller!(PersistentVolumeClaim, client, ctx);

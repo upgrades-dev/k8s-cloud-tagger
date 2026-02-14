@@ -41,7 +41,8 @@ KEEP_CLUSTER=true nix run .#kind-test
 
 You can also specify the image:
 ```bash
-IMAGE=quay.io/upgrades/k8s-cloud-tagger:v1.2.3 nix run .#kind-test
+nix develop
+IMAGE=quay.io/upgrades/k8s-cloud-tagger-dev:sha-6f4cbfe nix run .#kind-test
 ```
 
 `KEEP_CLUSTER=true` prints a message saying how to use `kubectl` in case you want to inspect the cluster.

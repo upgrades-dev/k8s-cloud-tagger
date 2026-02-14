@@ -44,6 +44,13 @@ spec:
         - name: controller
           image: {{ include "k8s-cloud-tagger.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.deployment.env }}
+          env:
+            {{- range $key, $value := .Values.deployment.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
           ports:
             - name: http
               containerPort: 8080

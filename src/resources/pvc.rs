@@ -50,6 +50,14 @@ fn extract_resource_id(pv: &PersistentVolume) -> Option<String> {
         return Some(pd_name.pd_name.clone());
     }
 
+    // hostPath - used by Kind/local-path-provisioner for test environments
+    if let Some(host_path) = &spec.host_path {
+        return Some(host_path.path.clone());
+    }
+
+    let pv_name = pv.metadata.name.as_deref().unwrap_or("<unknown>");
+    tracing::warn!(pv = %pv_name, "No supported volume source found (expected CSI, GCE PD, or hostPath)");
+
     None
 }
 

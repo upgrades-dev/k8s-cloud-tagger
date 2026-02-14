@@ -57,6 +57,7 @@ helm install k8s-cloud-tagger "${CHART_PATH}" \
   --set image.repository="${IMAGE_REPO}" \
   --set image.tag="${IMAGE_TAG}" \
   --set image.pullPolicy="${PULL_POLICY}" \
+  --set deployment.env.RUST_LOG="debug" \
   --wait \
   --timeout 60s
 

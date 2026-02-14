@@ -188,7 +188,7 @@
               echo "==> Building image..."
               export IMAGE_ARCHIVE
               IMAGE_ARCHIVE=$(nix build .#image-dev --no-link --print-out-paths)
-              export IMAGE="quay.io/upgrades/k8s-cloud-tagger:dev"
+              export IMAGE="quay.io/upgrades/k8s-cloud-tagger-dev:dev"
             fi
 
             exec ${./tests/e2e.sh} "$@"

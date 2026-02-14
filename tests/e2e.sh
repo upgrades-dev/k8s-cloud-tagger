@@ -66,6 +66,7 @@ echo "==> Controller is ready."
 
 echo "==> Creating test PVC..."
 kubectl apply -f "${FIXTURES_PATH}/pvc.yaml"
+kubectl apply -f "${FIXTURES_PATH}/pvc-consumer.yaml"
 
 echo "==> Waiting for PVC to bind..."
 kubectl wait --for=jsonpath='{.status.phase}'=Bound \

@@ -183,7 +183,14 @@
             export PATH="${pkgs.lib.makeBinPath (with pkgs; [ kind kubectl kubernetes-helm jq ])}:''$PATH"
             export CHART_PATH="${./helm/k8s-cloud-tagger}"
             export FIXTURES_PATH="${./tests/fixtures}"
-            export IMAGE_ARCHIVE="${self.packages.${system}.image-dev}"
+
+            if [ -z "''${IMAGE:-}" ]; then
+              echo "==> Building image..."
+              export IMAGE_ARCHIVE
+              IMAGE_ARCHIVE=$(nix build .#image-dev --no-link --print-out-paths)
+              export IMAGE="quay.io/upgrades/k8s-cloud-tagger:dev"
+            fi
+
             exec ${./tests/e2e.sh} "$@"
           '');
         };

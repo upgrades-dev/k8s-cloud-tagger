@@ -6,9 +6,6 @@ NAMESPACE="k8s-cloud-tagger"
 KEEP_CLUSTER="${KEEP_CLUSTER:-false}"
 IMAGE="${IMAGE:-}"
 
-LOCAL_REPO="quay.io/upgrades/k8s-cloud-tagger"
-LOCAL_TAG="dev"
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 cleanup() {
@@ -38,17 +35,16 @@ trap cleanup EXIT
 
 # ── Image loading ────────────────────────────────────────────────────────────
 
-if [ -n "${IMAGE}" ]; then
-  IMAGE_REPO="${IMAGE%%:*}"
-  IMAGE_TAG="${IMAGE##*:}"
-  PULL_POLICY="IfNotPresent"
-  echo "==> Using remote image: ${IMAGE_REPO}:${IMAGE_TAG}"
-else
-  IMAGE_REPO="${LOCAL_REPO}"
-  IMAGE_TAG="${LOCAL_TAG}"
+IMAGE_REPO="${IMAGE%%:*}"
+IMAGE_TAG="${IMAGE##*:}"
+
+if [ -n "${IMAGE_ARCHIVE:-}" ]; then
   PULL_POLICY="Never"
   echo "==> Loading local image into Kind..."
   kind load image-archive "${IMAGE_ARCHIVE}" --name "${CLUSTER_NAME}"
+else
+  PULL_POLICY="IfNotPresent"
+  echo "==> Using remote image: ${IMAGE}"
 fi
 
 # ── Deploy controller in test mode ──────────────────────────────────────────

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "k8s-cloud-tagger.fullname" . }}
+  labels:
+    {{- include "k8s-cloud-tagger.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+data:
+  config.yaml: |
+    cloudProvider: {{ .Values.cloudProvider | quote }}
+    requeue:
+      success: {{ .Values.requeue.success | quote }}
+      notReady: {{ .Values.requeue.notReady | quote }}
+      error: {{ .Values.requeue.error | quote }}

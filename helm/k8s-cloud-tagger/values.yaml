@@ -1,0 +1,81 @@
+# =============================================================================
+# k8s-cloud-tagger — default values
+# =============================================================================
+
+# -- Container image
+image:
+  repository: quay.io/upgrades/k8s-cloud-tagger
+  tag: ""  # Defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+# -- Number of replicas (HA not required — controller is stateless)
+replicaCount: 1
+
+# -- Cloud provider detection
+# Supported: auto, aws, gcp, azure
+# "auto" detects from node spec.providerID at startup.
+cloudProvider: auto
+
+# -- Reconciliation intervals
+requeue:
+  # How often to re-check after successful tagging
+  success: 5m
+  # Retry interval when a resource is not yet ready (e.g. PVC unbound)
+  notReady: 30s
+  # Retry interval after a cloud API error
+  error: 1m
+
+# -- Service account
+serviceAccount:
+  # -- Whether to create the ServiceAccount
+  create: true
+  # -- Override the ServiceAccount name (if empty, uses fullname template)
+  name: ""
+  # -- Annotations to add (e.g. cloud IAM role bindings)
+  annotations: {}
+    # AWS EKS (IRSA):
+    #   eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/k8s-cloud-tagger
+    # GCP GKE (Workload Identity):
+    #   iam.gke.io/gcp-service-account: <mailto:tagger@project.iam.gserviceaccount.com>
+    # Azure AKS (Workload Identity):
+  #   azure.workload.identity/client-id: <client-id>
+  # -- Labels to add to the ServiceAccount
+  labels: {}
+  # -- Disable automatic API token mounting at the SA level
+  automountServiceAccountToken: false
+
+# -- Pod-level configuration
+podAnnotations: {}
+podLabels: {}
+
+# -- Container resources
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    memory: 64Mi
+
+# -- Node scheduling
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# -- Kubernetes RBAC configuration
+rbac:
+  # -- Whether to create ClusterRole and ClusterRoleBinding
+  create: true
+  # -- Annotations to add to RBAC resources
+  annotations: {}
+
+# -- Prometheus Operator ServiceMonitor
+# Enabling this also creates a Service for scraping.
+# This is disabled by default because of CRD dependency.
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  # Additional labels for ServiceMonitor discovery
+  # (must match your Prometheus operator selector)
+  labels: {}
+  service:
+    annotations: {}

@@ -30,7 +30,7 @@
   # What this flake provides: checks, packages, devShells
   # ============================================================================
   outputs = { self, nixpkgs, crane, fenix, flake-utils, ... }:
-    flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
+    flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
 

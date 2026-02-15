@@ -133,3 +133,24 @@ gcloud container clusters resize cluster-1 \
     --zone "${GCP_ZONE}" \
     --project "${GCP_PROJECT}"
 ```
+
+# GCP
+
+## GCP label sanitisation
+
+Kubernetes label keys and values can contain characters that are not valid in GCP labels.
+GCP labels only allow lowercase letters, digits, hyphens, and underscores (`[a-z0-9_-]`),
+with keys limited to 63 characters and required to start with a lowercase letter.
+To bridge this gap, k8s-cloud-tagger sanitises labels before applying them to cloud resources:
+all characters are lowercased, and any character outside the allowed set is replaced with a hyphen.
+This follows the conventions used by Google's own resource labels (such as the `goog-gke-*` labels applied by GKE),
+where hyphens are the standard word separator.
+For more detail on GCP label requirements, see the [Google Cloud labeling best practices](https://cloud.google.com/resource-manager/docs/best-practices-labels).
+
+| Kubernetes label | GCP label |
+| --- | --- |
+| `app.kubernetes.io/name: frontend` | `app-kubernetes-io-name: frontend` |
+| `helm.sh/chart: myapp-1.2.0` | `helm-sh-chart: myapp-1-2-0` |
+| `env: production` | `env: production` |
+| `upgrades.dev/managed-by: k8s-cloud-tagger` | `upgrades-dev-managed-by: k8s-cloud-tagger` |
+| `Team: Platform` | `team: platform` |

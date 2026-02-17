@@ -47,10 +47,14 @@
           "rustfmt"
         ];
 
-        # Cross-compilation packages for static musl builds
-        # Uses nixpkgs' pkgsCross which provides the complete cross-compilation
-        # environment (cross-linker, musl libc) that works from any host platform
-        pkgsMusl = pkgs.pkgsCross.musl64;
+        # Musl cross-compilation toolchain
+        # Used for: static binary builds (no glibc dependency)
+        # This produces binaries that run on minimal containers (scratch, chainguard/static)
+        toolchainMusl = with fenix.packages.${system}; combine [
+          stable.cargo
+          stable.rustc
+          targets.x86_64-unknown-linux-musl.stable.rust-std
+        ];
 
         # ----------------------------------------------------------------------
         # Crane Build Library
@@ -60,7 +64,7 @@
         craneLib = (crane.mkLib pkgs).overrideToolchain toolchain;
 
         # Musl-targeting crane instance for release builds
-        craneLibMusl = crane.mkLib pkgsMusl;
+        craneLibMusl = (crane.mkLib pkgs).overrideToolchain toolchainMusl;
 
         # ----------------------------------------------------------------------
         # Source Filtering
@@ -87,13 +91,18 @@
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
         # Cached deps for musl toolchain (used by static binary)
-        cargoArtifactsMusl = craneLibMusl.buildDepsOnly commonArgs;
+        cargoArtifactsMusl = craneLibMusl.buildDepsOnly (commonArgs // {
+          CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+          CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
+        });
 
         # Static musl binary for container images
         # - No glibc dependency
         # - Runs on scratch/distroless/chainguard-static bases
         binaryMusl = craneLibMusl.buildPackage (commonArgs // {
           cargoArtifacts = cargoArtifactsMusl;
+          CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl";
+          CARGO_BUILD_RUSTFLAGS = "-C target-feature=+crt-static";
         });
 
         # ----------------------------------------------------------------------

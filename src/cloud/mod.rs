@@ -37,7 +37,6 @@ impl CloudClient for Box<dyn CloudClient> {
     }
 }
 
-
 /// Wrapper which adds metrics to any CloudClient
 pub struct MeteredClient<C: CloudClient> {
     inner: C,

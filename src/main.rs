@@ -7,7 +7,7 @@ mod reconciler;
 mod resources;
 mod traits;
 
-use crate::cloud::{MeteredClient};
+use crate::cloud::MeteredClient;
 use crate::reconciler::Context;
 use crate::reconciler::{error_policy, reconcile};
 use futures::StreamExt;

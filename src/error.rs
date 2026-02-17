@@ -8,6 +8,9 @@ pub enum Error {
     #[allow(dead_code)] // Used in tests; production usage coming with cloud providers
     #[error("Cloud API error: {0}")]
     CloudApi(String),
+
+    #[error("Not implemented")]
+    NotImplemented,
 }
 
 impl Error {
@@ -17,6 +20,7 @@ impl Error {
         match self {
             Error::Kube(_) => "kube",
             Error::CloudApi(_) => "cloud_api",
+            Error::NotImplemented => "not_implemented",
         }
     }
 }

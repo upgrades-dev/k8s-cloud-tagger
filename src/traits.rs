@@ -2,6 +2,7 @@ use crate::error::Error;
 use kube::{Client, Resource};
 use std::collections::BTreeMap;
 use std::future::Future;
+use std::str::FromStr;
 
 /// A resolved cloud resource ready for tagging.
 ///
@@ -22,12 +23,25 @@ pub struct CloudResource {
 pub enum CloudProvider {
     /// For testing. Always success in the Cloud Provider API.
     Mock,
+    Gcp,
 }
 
 impl std::fmt::Display for CloudProvider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CloudProvider::Mock => write!(f, "Mock"),
+            CloudProvider::Gcp => write!(f, "GCP"),
+        }
+    }
+}
+
+impl FromStr for CloudProvider {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Mock" => Ok(CloudProvider::Mock),
+            "GCP" => Ok(CloudProvider::Gcp),
+            _ => Err(format!("invalid cloud provider: {}", s)),
         }
     }
 }

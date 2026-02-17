@@ -39,7 +39,7 @@ nix build
 
 **Note to Mac users**: The e2e runs on Mac, but the Dockerimage is built by Docker instead of Nix, due to compatibility issues.
 
-Linux users can opt in to use Docker build with `USE_DOCKER_BUILD=true`.
+Linux users can opt in to use Docker build with `USE_DOCKER_BUILD=true`, but that is mainly for troubleshooting since it's generally slower than Nix.
 
 ```bash
 nix develop

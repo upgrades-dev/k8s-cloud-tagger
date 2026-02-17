@@ -210,6 +210,9 @@
             if [ -z "''${IMAGE:-}" ]; then
               export IMAGE="quay.io/upgrades/k8s-cloud-tagger-dev:dev"
 
+              # USE_DOCKER_BUILD=true: use Docker instead of Nix to build the image.
+              # On Mac this is necessary. On Linux, useful for debugging the container
+              # interactively (docker run, exec, etc.) but Nix is generally faster.
               if [[ "$(uname)" == "Darwin" || -n "''${USE_DOCKER_BUILD:-}" ]]; then
                 echo "==> Building image via Docker..."
                 cat ${dockerfile} | docker build \

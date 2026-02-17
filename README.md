@@ -10,6 +10,15 @@ Kubernetes cloud tagger watches cluster resources and applies labels in your clo
 * [Rust](https://rust-lang.org/tools/install)
 * [Docker Desktop](https://docs.docker.com/desktop/use-desktop/)
 
+### Configure nix
+
+You need to enable two experimental features for nix to work.
+
+```bash
+mkdir -p ~/.config/nix/
+echo "extra-experimental-features = nix-command flake" >> ~/.config/nix/nix.conf
+```
+
 ## Test
 
 ### Unit tests

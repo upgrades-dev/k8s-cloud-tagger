@@ -16,7 +16,7 @@ You need to enable two experimental features for nix to work.
 
 ```bash
 mkdir -p ~/.config/nix/
-echo "extra-experimental-features = nix-command flake" >> ~/.config/nix/nix.conf
+echo "extra-experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
 ```
 
 ## Test

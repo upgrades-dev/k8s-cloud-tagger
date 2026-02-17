@@ -23,14 +23,14 @@ pub struct CloudResource {
 pub enum CloudProvider {
     /// For testing. Always success in the Cloud Provider API.
     Mock,
-    GCP,
+    Gcp,
 }
 
 impl std::fmt::Display for CloudProvider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CloudProvider::Mock => write!(f, "Mock"),
-            CloudProvider::GCP => write!(f, "GCP"),
+            CloudProvider::Gcp => write!(f, "GCP"),
         }
     }
 }
@@ -40,7 +40,7 @@ impl FromStr for CloudProvider {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "Mock" => Ok(CloudProvider::Mock),
-            "GCP" => Ok(CloudProvider::GCP),
+            "GCP" => Ok(CloudProvider::Gcp),
             _ => Err(format!("invalid cloud provider: {}", s)),
         }
     }

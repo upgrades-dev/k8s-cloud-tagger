@@ -62,6 +62,6 @@ impl<C: CloudClient> MeteredClient<C> {
 pub async fn create_client(provider: &CloudProvider) -> Result<Box<dyn CloudClient>, Error> {
     match provider {
         CloudProvider::Mock => Ok(Box::new(MockClient::default())),
-        CloudProvider::GCP => Err(Error::NotImplemented),
+        CloudProvider::Gcp => Err(Error::NotImplemented),
     }
 }

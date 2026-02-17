@@ -35,7 +35,11 @@ nix build
 
 ### Integration tests
 
-Run an e2e locally:
+#### Run an e2e test locally
+
+**Note to Mac users**: The e2e runs on Mac, but the Dockerimage is built by Docker instead of Nix, due to compatibility issues.
+
+Linux users can opt in to use Docker build with `USE_DOCKER_BUILD=true`.
 
 ```bash
 nix develop

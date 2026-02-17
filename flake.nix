@@ -212,8 +212,7 @@
 
               if [[ "$(uname)" == "Darwin" || -n "''${USE_DOCKER_BUILD:-}" ]]; then
                 echo "==> Building image via Docker..."
-                cat ${dockerfile} | docker buildx build \
-                  --load \
+                cat ${dockerfile} | docker build \
                   -t "$IMAGE" \
                   -f - .
                 export IMAGE_SOURCE=docker

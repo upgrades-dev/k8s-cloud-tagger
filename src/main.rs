@@ -7,7 +7,7 @@ mod reconciler;
 mod resources;
 mod traits;
 
-use crate::cloud::{MeteredClient, MockClient};
+use crate::cloud::{MeteredClient};
 use crate::reconciler::Context;
 use crate::reconciler::{error_policy, reconcile};
 use futures::StreamExt;
@@ -47,10 +47,12 @@ async fn main() -> anyhow::Result<()> {
         instance: std::env::var("POD_NAME").ok(),
     };
 
+    let cloud = cloud::create_client(&cfg.cloud_provider).await?;
+
     let ctx = Arc::new(Context {
         client: client.clone(),
         config: cfg,
-        cloud: MeteredClient::new(MockClient::default()),
+        cloud: MeteredClient::new(cloud),
         reporter,
     });
 

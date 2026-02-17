@@ -4,6 +4,7 @@ pub use mock::MockClient;
 
 use crate::error::Error;
 use crate::metrics::API_CALL_DURATION;
+use crate::traits::CloudProvider;
 use async_trait::async_trait;
 use std::collections::BTreeMap;
 
@@ -15,6 +16,27 @@ pub trait CloudClient: Send + Sync {
 
     async fn set_tags(&self, resource_id: &str, labels: &Labels) -> Result<(), Error>;
 }
+
+/// Blanket implementation of [`CloudClient`] for boxed trait objects.
+///
+/// This allows any `Box<dyn CloudClient>` to be used interchangeably wherever a
+/// concrete [`CloudClient`] is expected, enabling provider-agnostic usage of
+/// cloud clients through dynamic dispatch.
+#[async_trait]
+impl CloudClient for Box<dyn CloudClient> {
+    /// Returns the name of the underlying cloud provider by delegating to the
+    /// inner implementation.
+    fn provider_name(&self) -> &'static str {
+        (**self).provider_name()
+    }
+
+    /// Applies the given labels to the specified resource by delegating to the
+    /// inner implementation.
+    async fn set_tags(&self, resource_id: &str, labels: &Labels) -> Result<(), Error> {
+        (**self).set_tags(resource_id, labels).await
+    }
+}
+
 
 /// Wrapper which adds metrics to any CloudClient
 pub struct MeteredClient<C: CloudClient> {
@@ -35,5 +57,12 @@ impl<C: CloudClient> MeteredClient<C> {
             .observe(start.elapsed().as_secs_f64());
 
         result
+    }
+}
+
+pub async fn create_client(provider: &CloudProvider) -> Result<Box<dyn CloudClient>, Error> {
+    match provider {
+        CloudProvider::Mock => Ok(Box::new(MockClient::default())),
+        CloudProvider::GCP => Err(Error::NotImplemented),
     }
 }

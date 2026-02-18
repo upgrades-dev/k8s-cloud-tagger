@@ -117,6 +117,29 @@
           finalImageTag = "latest";
         };
 
+        # Inline Dockerfile for Docker-based builds (used on Darwin / USE_DOCKER_BUILD)
+        # Uses cargo-chef to cache dependency builds across source changes
+        dockerfile = pkgs.writeText "Dockerfile" ''
+          FROM rust:bookworm AS chef
+          RUN cargo install cargo-chef
+          WORKDIR /app
+
+          FROM chef AS planner
+          COPY . .
+          RUN cargo chef prepare --recipe-path recipe.json
+
+          FROM chef AS builder
+          COPY --from=planner /app/recipe.json recipe.json
+          RUN cargo chef cook --release --recipe-path recipe.json
+          COPY . .
+          RUN cargo build --release
+
+          FROM debian:bookworm-slim
+          COPY --from=builder /app/target/release/k8s-cloud-tagger /
+          USER 65532:65532
+          ENTRYPOINT ["/k8s-cloud-tagger"]
+        '';
+
       in
       {
         # ======================================================================
@@ -185,10 +208,23 @@
             export FIXTURES_PATH="${./tests/fixtures}"
 
             if [ -z "''${IMAGE:-}" ]; then
-              echo "==> Building image..."
-              export IMAGE_ARCHIVE
-              IMAGE_ARCHIVE=$(nix build .#image-dev --no-link --print-out-paths)
               export IMAGE="quay.io/upgrades/k8s-cloud-tagger-dev:dev"
+
+              # USE_DOCKER_BUILD=true: use Docker instead of Nix to build the image.
+              # On Mac this is necessary. On Linux, useful for debugging the container
+              # interactively (docker run, exec, etc.) but Nix is generally faster.
+              if [[ "$(uname)" == "Darwin" || -n "''${USE_DOCKER_BUILD:-}" ]]; then
+                echo "==> Building image via Docker..."
+                cat ${dockerfile} | docker build \
+                  -t "$IMAGE" \
+                  -f - .
+                export IMAGE_SOURCE=docker
+              else
+                echo "==> Building image via Nix..."
+                export IMAGE_ARCHIVE
+                IMAGE_ARCHIVE=$(nix build .#image-dev --no-link --print-out-paths)
+                export IMAGE_SOURCE=archive
+              fi
             fi
 
             exec ${./tests/e2e.sh} "$@"
@@ -206,6 +242,7 @@
 
           # Additional packages for development
           packages = with pkgs; [
+            nix
             kind
             kubectl
             jq

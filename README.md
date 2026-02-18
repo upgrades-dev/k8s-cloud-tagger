@@ -10,6 +10,15 @@ Kubernetes cloud tagger watches cluster resources and applies labels in your clo
 * [Rust](https://rust-lang.org/tools/install)
 * [Docker Desktop](https://docs.docker.com/desktop/use-desktop/)
 
+### Configure nix
+
+You need to enable two experimental features for nix to work.
+
+```bash
+mkdir -p ~/.config/nix/
+echo "extra-experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+```
+
 ## Test
 
 ### Unit tests
@@ -26,7 +35,11 @@ nix build
 
 ### Integration tests
 
-Run an e2e locally:
+#### Run an e2e test locally
+
+**Note to Mac users**: The e2e runs on Mac, but the Dockerimage is built by Docker instead of Nix, due to compatibility issues.
+
+Linux users can opt in to use Docker build with `USE_DOCKER_BUILD=true`, but that is mainly for troubleshooting since it's generally slower than Nix.
 
 ```bash
 nix develop

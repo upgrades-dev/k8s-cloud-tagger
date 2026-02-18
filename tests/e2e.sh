@@ -38,14 +38,28 @@ trap cleanup EXIT
 IMAGE_REPO="${IMAGE%%:*}"
 IMAGE_TAG="${IMAGE##*:}"
 
-if [ -n "${IMAGE_ARCHIVE:-}" ]; then
-  PULL_POLICY="Never"
-  echo "==> Loading local image into Kind..."
-  kind load image-archive "${IMAGE_ARCHIVE}" --name "${CLUSTER_NAME}"
-else
-  PULL_POLICY="IfNotPresent"
-  echo "==> Using remote image: ${IMAGE}"
-fi
+IMAGE_SOURCE="${IMAGE_SOURCE:-remote}"
+
+case "${IMAGE_SOURCE}" in
+  archive)
+    PULL_POLICY="Never"
+    echo "==> Loading image archive into Kind..."
+    kind load image-archive "${IMAGE_ARCHIVE}" --name "${CLUSTER_NAME}"
+    ;;
+  docker)
+    PULL_POLICY="Never"
+    echo "==> Loading Docker image into Kind..."
+    kind load docker-image "${IMAGE}" --name "${CLUSTER_NAME}"
+    ;;
+  remote)
+    PULL_POLICY="IfNotPresent"
+    echo "==> Using remote image: ${IMAGE}"
+    ;;
+  *)
+    echo "ERROR: unknown IMAGE_SOURCE '${IMAGE_SOURCE}' (expected: archive, docker, remote)" >&2
+    exit 1
+    ;;
+esac
 
 # ── Deploy controller in test mode ──────────────────────────────────────────
 

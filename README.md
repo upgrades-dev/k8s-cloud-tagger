@@ -77,7 +77,7 @@ Create a low cost, minimal cluster for development:
 ```bash
 gcloud container clusters create cluster-1 \
     --project "${GCP_PROJECT}" \
-    --zone "${GCP_ZONE}$" \
+    --zone "${GCP_ZONE}" \
     --machine-type "e2-small" \
     --disk-type "pd-standard" \
     --disk-size "30" \
@@ -94,8 +94,8 @@ Load the cluster's kube config:
 
 ```bash
 gcloud container clusters get-credentials cluster-1 \
-  --zone ${GCP_ZONE} \
-  --project ${GCP_PROJECT}
+  --zone "${GCP_ZONE}" \
+  --project "${GCP_PROJECT}"
 ```
 
 Install Helm chart:

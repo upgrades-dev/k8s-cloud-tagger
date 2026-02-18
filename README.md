@@ -72,6 +72,34 @@ helm template k8s-cloud-tagger helm/k8s-cloud-tagger/ --set serviceMonitor.enabl
 
 ### To deploy to a GKE cluster
 
+Create a low cost, minimal cluster for development:
+
+```bash
+gcloud container clusters create cluster-1 \
+    --project "${GCP_PROJECT}" \
+    --zone "${GCP_ZONE}$" \
+    --machine-type "e2-small" \
+    --disk-type "pd-standard" \
+    --disk-size "30" \
+    --spot \
+    --num-nodes 1 \
+    --logging=NONE \
+    --monitoring=NONE \
+    --no-enable-managed-prometheus \
+    --release-channel "stable" \
+    --addons GcePersistentDiskCsiDriver
+```
+
+Load the cluster's kube config:
+
+```bash
+gcloud container clusters get-credentials cluster-1 \
+  --zone ${GCP_ZONE} \
+  --project ${GCP_PROJECT}
+```
+
+Install Helm chart:
+
 ```bash
 helm install k8s-cloud-tagger helm/k8s-cloud-tagger --set image.repository=quay.io/upgrades/k8s-cloud-tagger-dev --set image.tag=sha-6f4cbfe
 ```

@@ -69,3 +69,13 @@ To get the raw Kubernetes manifests:
 nix develop
 helm template k8s-cloud-tagger helm/k8s-cloud-tagger/ --set serviceMonitor.enabled=true
 ```
+
+### To deploy to a GKE cluster
+
+```bash
+helm install k8s-cloud-tagger helm/k8s-cloud-tagger --set image.repository=quay.io/upgrades/k8s-cloud-tagger-dev --set image.tag=sha-6f4cbfe
+```
+
+Where the value for `image.tag` comes from [Quay](https://quay.io/repository/upgrades/k8s-cloud-tagger-dev?tab=tags).
+
+You can build and push an image from your branch with the [push-dev-image](https://github.com/upgrades-dev/k8s-cloud-tagger/actions/workflows/push-dev-image.yml) GHA job.

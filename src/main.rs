@@ -5,6 +5,7 @@ mod health;
 mod metrics;
 mod reconciler;
 mod resources;
+mod tls;
 mod traits;
 
 use crate::cloud::MeteredClient;
@@ -30,6 +31,8 @@ macro_rules! controller {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    tls::install_crypto_provider();
+
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .with_span_events(FmtSpan::CLOSE)

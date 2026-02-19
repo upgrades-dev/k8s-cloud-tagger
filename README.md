@@ -98,12 +98,15 @@ gcloud container clusters get-credentials cluster-1 \
   --project "${GCP_PROJECT}"
 ```
 
+Build and push an image from your branch with the [push-dev-image](https://github.com/upgrades-dev/k8s-cloud-tagger/actions/workflows/push-dev-image.yml) GHA job.
+
 Install Helm chart:
 
 ```bash
-helm install k8s-cloud-tagger helm/k8s-cloud-tagger --set image.repository=quay.io/upgrades/k8s-cloud-tagger-dev --set image.tag=sha-6f4cbfe
+helm install k8s-cloud-tagger helm/k8s-cloud-tagger \
+  --set cloud_provider=gcp \
+  --set image.repository=quay.io/upgrades/k8s-cloud-tagger-dev \
+  --set image.tag="sha-$(git rev-parse --short HEAD)"
 ```
 
-Where the value for `image.tag` comes from [Quay](https://quay.io/repository/upgrades/k8s-cloud-tagger-dev?tab=tags).
-
-You can build and push an image from your branch with the [push-dev-image](https://github.com/upgrades-dev/k8s-cloud-tagger/actions/workflows/push-dev-image.yml) GHA job.
+Where the value for `image.tag` matches the tag of the image pushed to [Quay](https://quay.io/repository/upgrades/k8s-cloud-tagger-dev?tab=tags).

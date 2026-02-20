@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use crate::cloud::{CloudClient, Labels};
 use crate::error::Error;
 use crate::tls::http_client;
@@ -50,8 +51,54 @@ impl GcpDisk {
     }
 }
 
+/// Sanitise a string for use as a GCP label key or value.
+///
+/// GCP labels allow `[a-z0-9_-]`, max 63 chars.
+/// We follow GCP's own label conventions (e.g. `goog-gke-*`), using
+/// hyphens as the standard separator.
+fn sanitise_gcp_label(input: &str) -> String {
+    input
+        .to_lowercase()
+        .chars()
+        .map(|c| match c {
+            'a'..='z' | '0'..='9' | '-' | '_' => c,
+            _ => '-',
+        })
+        .take(63)
+        .collect()
+}
+
+/// Sanitise a Kubernetes label key for use as a GCP label key.
+/// Returns None if the result is empty after sanitisation.
+pub fn sanitise_gcp_label_key(input: &str) -> Option<String> {
+    let s = sanitise_gcp_label(input);
+    let s = s.trim_start_matches(|c: char| !c.is_ascii_lowercase());
+    (!s.is_empty()).then(|| s.to_string())
+}
+
+/// Sanitise a full set of Kubernetes labels for GCP.
+/// Keys that are empty after sanitisation are skipped.
+fn sanitise_labels(labels: &Labels) -> BTreeMap<String, String> {
+    let mut result = BTreeMap::new();
+    for (k, v) in labels {
+        match sanitise_gcp_label_key(k) {
+            Some(gcp_key) => {
+                let gcp_val = sanitise_gcp_label(v);
+                tracing::debug!(k8s_key = %k, gcp_key = %gcp_key, "Sanitised label key");
+                result.insert(gcp_key, gcp_val);
+            }
+            None => {
+                tracing::debug!(key = %k, "Skipping label: empty after sanitisation");
+            }
+        }
+    }
+    result
+}
+
 #[derive(Deserialize)]
 struct DiskResponse {
+    #[serde(default)]
+    labels: BTreeMap<String, String>,
     #[serde(rename = "labelFingerprint")]
     label_fingerprint: String,
 }
@@ -129,6 +176,8 @@ impl CloudClient for GcpClient {
         Ok(())
     }
 }
+
+
 
 #[cfg(test)]
 mod tests {

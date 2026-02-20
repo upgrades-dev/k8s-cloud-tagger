@@ -1,7 +1,7 @@
 use crate::traits::CloudProvider;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use std::time::Duration;
 use std::path::Path;
+use std::time::Duration;
 
 const DEFAULT_PROBE_ADDR: SocketAddr =
     SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8080));
@@ -65,7 +65,9 @@ fn parse_duration_str(s: &str) -> Result<Duration, String> {
             .map(Duration::from_secs)
             .map_err(|e| e.to_string())
     } else {
-        Err(format!("unrecognised duration format: '{s}' (expected e.g. '5m' or '30s')"))
+        Err(format!(
+            "unrecognised duration format: '{s}' (expected e.g. '5m' or '30s')"
+        ))
     }
 }
 
@@ -92,9 +94,11 @@ requeue:
         assert_eq!(cfg.requeue_not_ready, Duration::from_secs(30));
         assert_eq!(cfg.requeue_error, Duration::from_secs(60));
         assert_eq!(cfg.probe_addr, DEFAULT_PROBE_ADDR);
-        assert!(matches!(cfg.cloud_provider, crate::traits::CloudProvider::Gcp));
+        assert!(matches!(
+            cfg.cloud_provider,
+            crate::traits::CloudProvider::Gcp
+        ));
     }
-
 
     #[test]
     fn test_from_file_missing_returns_err() {

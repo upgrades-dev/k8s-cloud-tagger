@@ -104,7 +104,8 @@ Install Helm chart:
 
 ```bash
 helm install k8s-cloud-tagger helm/k8s-cloud-tagger \
-  --set cloud_provider=gcp \
+  --set deployment.env.RUST_LOG="debug" \
+  --set cloudProvider=gcp \
   --set image.repository=quay.io/upgrades/k8s-cloud-tagger-dev \
   --set image.tag="sha-$(git rev-parse --short HEAD)"
 ```

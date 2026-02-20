@@ -91,8 +91,10 @@ requeue:
         assert_eq!(cfg.requeue_success, Duration::from_secs(300));
         assert_eq!(cfg.requeue_not_ready, Duration::from_secs(30));
         assert_eq!(cfg.requeue_error, Duration::from_secs(60));
+        assert_eq!(cfg.probe_addr, DEFAULT_PROBE_ADDR);
         assert!(matches!(cfg.cloud_provider, crate::traits::CloudProvider::Gcp));
     }
+
 
     #[test]
     fn test_from_file_missing_returns_err() {

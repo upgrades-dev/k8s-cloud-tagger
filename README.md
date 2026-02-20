@@ -110,3 +110,25 @@ helm install k8s-cloud-tagger helm/k8s-cloud-tagger \
 ```
 
 Where the value for `image.tag` matches the tag of the image pushed to [Quay](https://quay.io/repository/upgrades/k8s-cloud-tagger-dev?tab=tags).
+
+#### Useful commands for GKE
+
+Scale down cluster to zero (stop paying for compute):
+
+```bash
+gcloud container clusters resize cluster-1 \
+    --node-pool default-pool \
+    --num-nodes 0 \
+    --zone "${GCP_ZONE}" \
+    --project "${GCP_PROJECT}"
+```
+
+Scale up again:
+
+```bash
+gcloud container clusters resize cluster-1 \
+    --node-pool default-pool \
+    --num-nodes 1 \
+    --zone "${GCP_ZONE}" \
+    --project "${GCP_PROJECT}"
+```

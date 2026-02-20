@@ -2,6 +2,8 @@ use crate::traits::CloudProvider;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::path::Path;
 use std::time::Duration;
+use std::io::Write;
+use tempfile::NamedTempFile;
 
 const DEFAULT_PROBE_ADDR: SocketAddr =
     SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8080));
@@ -50,7 +52,7 @@ impl Config {
             requeue_not_ready: parse_duration_str(&fc.requeue.not_ready)?,
             requeue_error: parse_duration_str(&fc.requeue.error)?,
             probe_addr: DEFAULT_PROBE_ADDR,
-            cloud_provider: fc.cloud_provider.parse().map_err(|e: String| e)?,
+            cloud_provider: fc.cloud_provider.parse()?,
         })
     }
 }
@@ -84,11 +86,10 @@ requeue:
   notReady: \"30s\"
   error: \"1m\"
 ";
-        let dir = std::env::temp_dir();
-        let path = dir.join("test_config.yaml");
-        std::fs::write(&path, yaml).unwrap();
+        let mut file = NamedTempFile::new().unwrap();
+        write!(file, "{}", yaml).unwrap();
 
-        let cfg = Config::from_file(&path).unwrap();
+        let cfg = Config::from_file(file.path()).unwrap();
 
         assert_eq!(cfg.requeue_success, Duration::from_secs(300));
         assert_eq!(cfg.requeue_not_ready, Duration::from_secs(30));

@@ -21,6 +21,8 @@ use std::sync::Arc;
 use tokio::signal;
 use tracing_subscriber::fmt::format::FmtSpan;
 
+const CONFIG_PATH: &str = "/etc/k8s-cloud-tagger/config.yaml";
+
 macro_rules! controller {
     ($t:ty, $client:expr, $ctx: expr) => {
         Controller::new(Api::<$t>::all($client), Config::default())
@@ -40,11 +42,9 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Starting k8s-cloud-tagger");
 
-    let cfg = config::Config::from_file("/etc/k8s-cloud-tagger/config.yaml")
-        .unwrap_or_else(|e| {
-            tracing::warn!("could not read config file: {e}, falling back to env vars");
-            config::Config::from_env()
-        });
+    let cfg = config::Config::from_file(CONFIG_PATH)
+        .unwrap_or_else(|e| panic!("failed to read config file {CONFIG_PATH}: {e}"));
+
     let probe_addr = cfg.probe_addr;
 
     let client = Client::try_default().await?;

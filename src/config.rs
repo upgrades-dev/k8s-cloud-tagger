@@ -2,8 +2,6 @@ use crate::traits::CloudProvider;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::path::Path;
 use std::time::Duration;
-use std::io::Write;
-use tempfile::NamedTempFile;
 
 const DEFAULT_PROBE_ADDR: SocketAddr =
     SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8080));
@@ -75,6 +73,9 @@ fn parse_duration_str(s: &str) -> Result<Duration, String> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
     use super::*;
 
     #[test]

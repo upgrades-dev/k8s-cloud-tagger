@@ -40,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Starting k8s-cloud-tagger");
 
-    let cfg = config::Config::load().unwrap_or_else(|e| panic!("failed to read config file: {e}"));
+    let cfg = config::Config::load()?;
 
     let probe_addr = cfg.probe_addr;
 

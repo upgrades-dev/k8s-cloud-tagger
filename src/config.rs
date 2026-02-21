@@ -1,3 +1,4 @@
+use crate::error::Error;
 use crate::traits::CloudProvider;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::path::Path;
@@ -43,19 +44,20 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn load() -> Result<Self, String> {
+    pub fn load() -> Result<Self, Error> {
         let path = std::env::var("CONFIG_PATH").unwrap_or_else(|_| DEFAULT_CONFIG_PATH.to_string());
         Self::from_file(path)
     }
-    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, String> {
-        let raw = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-        let fc: FileConfig = serde_yaml::from_str(&raw).map_err(|e| e.to_string())?;
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, Error> {
+        let raw = std::fs::read_to_string(path).map_err(|e| Error::Config(e.to_string()))?;
+        let fc: FileConfig =
+            serde_yaml::from_str(&raw).map_err(|e| Error::Config(e.to_string()))?;
         Ok(Self {
-            requeue_success: parse_duration_str(&fc.requeue.success)?,
-            requeue_not_ready: parse_duration_str(&fc.requeue.not_ready)?,
-            requeue_error: parse_duration_str(&fc.requeue.error)?,
+            requeue_success: parse_duration_str(&fc.requeue.success).map_err(Error::Config)?,
+            requeue_not_ready: parse_duration_str(&fc.requeue.not_ready).map_err(Error::Config)?,
+            requeue_error: parse_duration_str(&fc.requeue.error).map_err(Error::Config)?,
             probe_addr: DEFAULT_PROBE_ADDR,
-            cloud_provider: fc.cloud_provider.parse()?,
+            cloud_provider: fc.cloud_provider.parse().map_err(Error::Config)?,
         })
     }
 }

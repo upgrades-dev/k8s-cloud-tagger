@@ -5,6 +5,7 @@ use std::time::Duration;
 
 const DEFAULT_PROBE_ADDR: SocketAddr =
     SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8080));
+const DEFAULT_CONFIG_PATH: &str = "/etc/k8s-cloud-tagger/config.yaml";
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,6 +43,10 @@ impl Default for Config {
 }
 
 impl Config {
+    pub fn load() -> Result<Self, String> {
+        let path = std::env::var("CONFIG_PATH").unwrap_or_else(|_| DEFAULT_CONFIG_PATH.to_string());
+        Self::from_file(path)
+    }
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, String> {
         let raw = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
         let fc: FileConfig = serde_yaml::from_str(&raw).map_err(|e| e.to_string())?;

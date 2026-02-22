@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use crate::cloud::{CloudClient, Labels};
 use crate::error::Error;
 use crate::tls::http_client;
@@ -6,6 +5,7 @@ use async_trait::async_trait;
 use gcp_auth::TokenProvider;
 use reqwest::Client;
 use serde::Deserialize;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 pub struct GcpDisk {
@@ -70,7 +70,7 @@ fn sanitise_gcp_label(input: &str) -> String {
 
 /// Sanitise a Kubernetes label key for use as a GCP label key.
 /// Returns None if the result is empty after sanitisation.
-pub fn sanitise_gcp_label_key(input: &str) -> Option<String> {
+fn sanitise_gcp_label_key(input: &str) -> Option<String> {
     let s = sanitise_gcp_label(input);
     let s = s.trim_start_matches(|c: char| !c.is_ascii_lowercase());
     (!s.is_empty()).then(|| s.to_string())
@@ -124,36 +124,29 @@ impl GcpClient {
         Ok(token.as_str().to_string())
     }
 
-    async fn get_label_fingerprint(&self, disk: &GcpDisk) -> Result<String, Error> {
+    async fn get_disk_response(&self, disk: &GcpDisk) -> Result<DiskResponse, Error> {
         let token = self.token().await?;
         let resp: DiskResponse = self
             .http
             .get(disk.api_path())
             .bearer_auth(&token)
-            .query(&[("fields", "labelFingerprint")])
+            .query(&[("fields", "labels,labelFingerprint")])
             .send()
             .await?
             .error_for_status()?
             .json()
             .await?;
 
-        Ok(resp.label_fingerprint)
-    }
-}
-
-#[async_trait]
-impl CloudClient for GcpClient {
-    fn provider_name(&self) -> &'static str {
-        "gcp"
+        Ok(resp)
     }
 
-    async fn set_tags(&self, resource_id: &str, labels: &Labels) -> Result<(), Error> {
-        let disk =
-            GcpDisk::parse(resource_id).ok_or(Error::CloudApi("Invalid resource ID".into()))?;
-
-        let fingerprint = self.get_label_fingerprint(&disk).await?;
+    async fn post_labels(
+        &self,
+        disk: &GcpDisk,
+        labels: &BTreeMap<String, String>,
+        fingerprint: &str,
+    ) -> Result<(), Error> {
         let token = self.token().await?;
-
         let body = serde_json::json!({
             "labels": labels,
             "labelFingerprint": fingerprint,
@@ -167,17 +160,38 @@ impl CloudClient for GcpClient {
             .await?
             .error_for_status()?;
 
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl CloudClient for GcpClient {
+    fn provider_name(&self) -> &'static str {
+        "gcp"
+    }
+
+    async fn set_tags(&self, resource_id: &str, labels: &Labels) -> Result<(), Error> {
+        let disk =
+            GcpDisk::parse(resource_id).ok_or(Error::CloudApi("Invalid resource ID".into()))?;
+
+        let disk_response = self.get_disk_response(&disk).await?;
+
+        let sanitised = sanitise_labels(labels);
+        let mut merged = disk_response.labels;
+        merged.extend(sanitised);
+
+        self.post_labels(&disk, &merged, &disk_response.label_fingerprint)
+            .await?;
+
         tracing::debug!(
             disk = %resource_id,
-            lalbels = ?labels,
+            labels = ?merged,
             "GCP: labels set"
         );
 
         Ok(())
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {

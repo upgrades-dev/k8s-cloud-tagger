@@ -70,6 +70,12 @@ where
     T: CloudTaggable + ResourceExt,
     C: CloudClient,
 {
+    // Skip resources that are being deleted.
+    if resource.meta().deletion_timestamp.is_some() {
+        tracing::debug!(%kind, %namespace, %name, "Resource is being deleted, skipping");
+        return Ok(Action::await_change());
+    }
+
     // Resolve the cloud resource (may need intermediate lookups)
     let cloud_resource = resource.resolve_cloud_resource(&ctx.client).await?;
 
@@ -149,6 +155,7 @@ mod tests {
     use crate::traits::{CloudProvider, CloudResource};
     use async_trait::async_trait;
     use bytes::Bytes;
+    use jiff::Timestamp;
     use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
     use std::collections::BTreeMap;
     use std::sync::Mutex;
@@ -390,5 +397,25 @@ mod tests {
 
         // Verify error_policy returns without panicking
         let _action = error_policy(resource, &error, ctx);
+    }
+
+    #[tokio::test]
+    async fn skips_deleted_resource() {
+        let cloud = MockCloud::default();
+        let calls = cloud.tag_calls.clone();
+        let ctx = test_ctx(cloud);
+        let mut resource = mock_resource("deleted-pvc", Some(sample_cloud_resource()));
+        resource.meta.deletion_timestamp = Some(
+            k8s_openapi::apimachinery::pkg::apis::meta::v1::Time(Timestamp::now()),
+        );
+
+        let result = do_reconcile(&resource, &ctx, "mockresource", "default", "deleted-pvc").await;
+
+        assert!(result.is_ok(), "reconcile should succeed");
+        assert_eq!(
+            calls.load(Ordering::Relaxed),
+            0,
+            "cloud API should not be called for deleted resource"
+        );
     }
 }

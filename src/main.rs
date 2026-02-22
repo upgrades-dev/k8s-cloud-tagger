@@ -40,7 +40,8 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Starting k8s-cloud-tagger");
 
-    let cfg = config::Config::from_env();
+    let cfg = config::Config::load()?;
+
     let probe_addr = cfg.probe_addr;
 
     let client = Client::try_default().await?;

@@ -67,7 +67,7 @@ echo "==> Installing Helm chart (cloudProvider=test)..."
 helm install k8s-cloud-tagger "${CHART_PATH}" \
   --namespace "${NAMESPACE}" \
   --create-namespace \
-  --set cloudProvider=test \
+  --set cloudProvider=mock \
   --set image.repository="${IMAGE_REPO}" \
   --set image.tag="${IMAGE_TAG}" \
   --set image.pullPolicy="${PULL_POLICY}" \

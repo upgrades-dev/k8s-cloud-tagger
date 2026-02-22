@@ -11,6 +11,9 @@ pub enum Error {
 
     #[error("Not implemented")]
     NotImplemented,
+
+    #[error("Config error: {0}")]
+    Config(String),
 }
 
 impl Error {
@@ -21,6 +24,7 @@ impl Error {
             Error::Kube(_) => "kube",
             Error::CloudApi(_) => "cloud_api",
             Error::NotImplemented => "not_implemented",
+            Error::Config(_) => "config",
         }
     }
 }

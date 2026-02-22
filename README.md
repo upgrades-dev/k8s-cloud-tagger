@@ -69,3 +69,67 @@ To get the raw Kubernetes manifests:
 nix develop
 helm template k8s-cloud-tagger helm/k8s-cloud-tagger/ --set serviceMonitor.enabled=true
 ```
+
+### To deploy to a GKE cluster
+
+Create a low cost, minimal cluster for development:
+
+```bash
+gcloud container clusters create cluster-1 \
+    --project "${GCP_PROJECT}" \
+    --zone "${GCP_ZONE}" \
+    --machine-type "e2-small" \
+    --disk-type "pd-standard" \
+    --disk-size "30" \
+    --spot \
+    --num-nodes 1 \
+    --logging=NONE \
+    --monitoring=NONE \
+    --no-enable-managed-prometheus \
+    --release-channel "stable" \
+    --addons GcePersistentDiskCsiDriver
+```
+
+Load the cluster's kube config:
+
+```bash
+gcloud container clusters get-credentials cluster-1 \
+  --zone "${GCP_ZONE}" \
+  --project "${GCP_PROJECT}"
+```
+
+Build and push an image from your branch with the [push-dev-image](https://github.com/upgrades-dev/k8s-cloud-tagger/actions/workflows/push-dev-image.yml) GHA job.
+
+Install Helm chart:
+
+```bash
+helm install k8s-cloud-tagger helm/k8s-cloud-tagger \
+  --set deployment.env.RUST_LOG="debug" \
+  --set cloudProvider=gcp \
+  --set image.repository=quay.io/upgrades/k8s-cloud-tagger-dev \
+  --set image.tag="sha-$(git rev-parse --short HEAD)"
+```
+
+Where the value for `image.tag` matches the tag of the image pushed to [Quay](https://quay.io/repository/upgrades/k8s-cloud-tagger-dev?tab=tags).
+
+#### Useful commands for GKE
+
+Scale down cluster to zero (stop paying for compute):
+
+```bash
+gcloud container clusters resize cluster-1 \
+    --node-pool default-pool \
+    --num-nodes 0 \
+    --zone "${GCP_ZONE}" \
+    --project "${GCP_PROJECT}"
+```
+
+Scale up again:
+
+```bash
+gcloud container clusters resize cluster-1 \
+    --node-pool default-pool \
+    --num-nodes 1 \
+    --zone "${GCP_ZONE}" \
+    --project "${GCP_PROJECT}"
+```

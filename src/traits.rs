@@ -38,8 +38,8 @@ impl std::fmt::Display for CloudProvider {
 impl FromStr for CloudProvider {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Mock" => Ok(CloudProvider::Mock),
+        match s.to_uppercase().as_str() {
+            "MOCK" => Ok(CloudProvider::Mock),
             "GCP" => Ok(CloudProvider::Gcp),
             _ => Err(format!("invalid cloud provider: {}", s)),
         }

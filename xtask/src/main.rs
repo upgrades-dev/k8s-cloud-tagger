@@ -79,6 +79,8 @@ fn release(version: &str) {
     process::exit(1);
   });
 
+  // Fine for as long as we stick to x.y.z
+  // If we start doing 1.0.0-alpha releases we should us a parsing lib
   if current >= new {
     eprintln!("New version {version} must be greater than current {current_str}");
     process::exit(1);

@@ -4,8 +4,8 @@ description: >-
   Watch Kubernetes resource labels and automatically propagate them
   as tags to AWS, GCP, and Azure cloud resources
 type: application
-version: 1.0.0
-appVersion: 1.0.0
+version: 0.1.0
+appVersion: 0.1.0
 kubeVersion: ">=1.33.0-0"
 home: https://github.com/upgrades-dev/k8s-cloud-tagger
 icon: https://raw.githubusercontent.com/upgrades-dev/k8s-cloud-tagger/main/logo.png

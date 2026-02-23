@@ -203,10 +203,8 @@ For more detail on GCP label requirements, see the [Google Cloud labeling best p
 
 ## Release
 
-To release a new version you need to have permissions to push to `main`.
-
 1. Check out a new branch
 1. Update [CHANGELOG.md](./CHANGELOG.md) following the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [SemVer](https://semver.org/) conventions.
 1. Run `cargo xtask release <version>`. This updates and commits the relevant files to git.
 1. Raise PR, merge PR
-1. When the PR is merged, a job will run that adds a git tag, and builds and pushes the release Dockerimage
+1. When the PR is merged, a job will run that adds a git tag, and builds and pushes the release Docker image

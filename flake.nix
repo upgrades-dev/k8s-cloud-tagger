@@ -194,6 +194,15 @@
               User = "65532:65532";
             };
           };
+
+          image = pkgs.dockerTools.buildImage {
+            name = "quay.io/upgrades/k8s-cloud-tagger-dev";
+            tag = "latest";
+            fromImage = chainguardStatic;
+            config = {
+              Entrypoint = [ "${binaryMusl}/bin/k8s-cloud-tagger" ];
+              User = "65532:65532";
+            };
         };
 
         # ======================================================================

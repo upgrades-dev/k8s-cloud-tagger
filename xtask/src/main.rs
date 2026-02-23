@@ -102,9 +102,8 @@ fn release(version: &str) {
   run("cargo", &["generate-lockfile"]);
   run("git", &["add", CARGO_FILE_PATH, CARGO_LOCK_FILE_PATH, HELM_CHART_FILE_PATH, CHANGELOG_FILE_PATH]);
   run("git", &["commit", "--message", &format!("release v{version}")]);
-  run("git", &["tag", &format!("v{version}")]);
 
-  println!("Done. Run: git push && git push --tags");
+  println!("Done. Open a PR with this commit. CI will tag and release on merge.");
 }
 
 fn parse_semver(v: &str) -> Option<(u32, u32, u32)> {

@@ -70,7 +70,7 @@ fn release(version: &str) {
 
   // Check that the new version is an upgrade (downgrade not allowed)
   let current_content = read_file(CARGO_FILE_PATH);
-  let current_str = extract_version(&current_content, "version=").unwrap_or_else(|| {
+  let current_str = extract_version(&current_content, "version = ").unwrap_or_else(|| {
     eprintln!("Could not read current version from {CARGO_FILE_PATH}");
     process::exit(1);
   });

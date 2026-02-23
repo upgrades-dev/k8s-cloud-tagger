@@ -114,7 +114,7 @@ Where the value for `image.tag` matches the tag of the image pushed to [Quay](ht
 
 #### Useful commands for GKE
 
-Scale down cluster to zero (stop paying for compute):
+Scale down the cluster to zero (stop paying for compute):
 
 ```bash
 gcloud container clusters resize cluster-1 \
@@ -132,6 +132,52 @@ gcloud container clusters resize cluster-1 \
     --num-nodes 1 \
     --zone "${GCP_ZONE}" \
     --project "${GCP_PROJECT}"
+```
+
+Grant IAM permissions to the controller's service account:
+```bash
+# Set your project ID once
+export PROJECT_ID="<your-gcp-project-id>"
+gcloud config set project "$PROJECT_ID"
+
+# Create a service account
+gcloud iam service-accounts create k8s-cloud-tagger \
+  --display-name="k8s-cloud-tagger"
+
+# Grant permissions (scope down for production use)
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:k8s-cloud-tagger@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/compute.storageAdmin"
+
+# Bind the GCP and K8s service accounts
+gcloud iam service-accounts add-iam-policy-binding \
+  "k8s-cloud-tagger@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="serviceAccount:${PROJECT_ID}.svc.id.goog[k8s-cloud-tagger/k8s-cloud-tagger]"
+
+# Add the GCP service account annotation to the controller's service account
+kubectl annotate serviceaccount k8s-cloud-tagger \
+  -n k8s-cloud-tagger \
+  "iam.gke.io/gcp-service-account=k8s-cloud-tagger@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --overwrite
+```
+
+## Google Artifact Registry
+
+If you use an autopilot cluster or just have private nodes, then it's easiest to use pkg.dev.
+
+```bash
+nix develop
+nix build .#image-dev
+
+docker load < result
+docker tag quay.io/upgrades/k8s-cloud-tagger-dev:dev \
+  "${REGION}-docker.pkg.dev/${PROJECT_ID}/k8s-cloud-tagger/controller:YOUR-FEATURE"
+
+helm upgrade k8s-cloud-tagger helm/k8s-cloud-tagger -n k8s-cloud-tagger \
+  --set deployment.env.RUST_LOG="debug" --set cloudProvider=gcp \
+  --set image.repository="${REGION}-docker.pkg.dev/${PROJECT_ID}/k8s-cloud-tagger/controller"
+  --set image.tag="YOUR-FEATURE"
 ```
 
 # GCP

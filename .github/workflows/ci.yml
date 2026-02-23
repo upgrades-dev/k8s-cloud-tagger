@@ -183,3 +183,90 @@ jobs:
             "$test" == "success" && \
             "$build" == "success" \
           ]]
+
+  detect-release:
+    runs-on: ubuntu-latest
+    needs: [summary]
+    if: |
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.summary.result == 'success'
+    outputs:
+      is_release: ${{ steps.detect.outputs.is_release }}
+      version: ${{ steps.detect.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Detect release commit
+        id: detect
+        run: |
+          MSG=$(git log -1 --format=%s)
+          if [[ "$MSG" =~ ^release\ v([0-9]+\.[0-9]+\.[0-9]+)$ ]];
+          then
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  tag-and-release:
+    runs-on: ubuntu-latest
+    needs: [detect-release]
+    if: needs.detect-release.outputs.is_release == 'true'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create git tag
+        env:
+          TAG: v${{ needs.detect-release.outputs.version }}
+        run: |
+          if git ls-remote --tags origin "$TAG" | grep -qF "refs/tags/$TAG";
+          then
+            echo "Tag $TAG already exists, skipping."
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Setup Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Restore Nix cache
+        uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/Cargo.lock', 'flake.lock') }}
+
+      - name: Build release image
+        run: nix build .#image
+
+      - name: Push release image
+        id: push
+        env:
+          VERSION: ${{ needs.detect-release.outputs.version }}
+        run: |
+          TAG="v${VERSION}"
+          IMAGE="quay.io/upgrades/k8s-cloud-tagger:${TAG}"
+
+          nix develop -c skopeo login quay.io \
+            -u "${{ secrets.QUAY_USERNAME }}" \
+            -p "${{ secrets.QUAY_PASSWORD }}"
+
+          nix develop -c skopeo copy docker-archive:result "docker://${IMAGE}"
+
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          ## Release ${{ needs.detect-release.outputs.version }}
+
+          | | |
+          | --- | --- |
+          | **Image** | \`${{ steps.push.outputs.image }}\` |
+          | **Tag** | \`${{ steps.push.outputs.tag }}\` |
+          | **Registry** | [Quay.io](https://quay.io/repository/upgrades/k8s-cloud-tagger?tab=tags) |
+          EOF

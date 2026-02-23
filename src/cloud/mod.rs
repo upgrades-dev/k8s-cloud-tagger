@@ -1,7 +1,9 @@
+mod gcp;
 mod mock;
 
 pub use mock::MockClient;
 
+use crate::cloud::gcp::GcpClient;
 use crate::error::Error;
 use crate::metrics::API_CALL_DURATION;
 use crate::traits::CloudProvider;
@@ -62,6 +64,6 @@ impl<C: CloudClient> MeteredClient<C> {
 pub async fn create_client(provider: &CloudProvider) -> Result<Box<dyn CloudClient>, Error> {
     match provider {
         CloudProvider::Mock => Ok(Box::new(MockClient::default())),
-        CloudProvider::Gcp => Err(Error::NotImplemented),
+        CloudProvider::Gcp => Ok(Box::new(GcpClient::new().await?)),
     }
 }

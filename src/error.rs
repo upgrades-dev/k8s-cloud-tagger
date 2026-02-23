@@ -5,15 +5,18 @@ pub enum Error {
     #[error("Kubernetes API error: {0}")]
     Kube(#[from] kube::Error),
 
-    #[allow(dead_code)] // Used in tests; production usage coming with cloud providers
+    #[allow(dead_code)] // Used in tests
     #[error("Cloud API error: {0}")]
     CloudApi(String),
 
-    #[error("Not implemented")]
-    NotImplemented,
-
     #[error("Config error: {0}")]
     Config(String),
+
+    #[error("HTTP error: {0}")]
+    Reqwest(#[from] reqwest::Error),
+
+    #[error("GCP auth error: {0}")]
+    Gcp(#[from] gcp_auth::Error),
 }
 
 impl Error {
@@ -23,8 +26,9 @@ impl Error {
         match self {
             Error::Kube(_) => "kube",
             Error::CloudApi(_) => "cloud_api",
-            Error::NotImplemented => "not_implemented",
             Error::Config(_) => "config",
+            Error::Gcp(_) => "gcp",
+            Error::Reqwest(_) => "http",
         }
     }
 }

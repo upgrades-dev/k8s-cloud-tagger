@@ -42,7 +42,7 @@ fn check_versions() {
     let cargo = read_file(CARGO_FILE_PATH);
     let chart = read_file(HELM_CHART_FILE_PATH);
 
-    let cargo_version = extract_version(&cargo, "version =").unwrap_or_else(|| {
+    let cargo_version = extract_version(&cargo, "version = ").unwrap_or_else(|| {
         eprintln!("No version found in {CARGO_FILE_PATH}");
         process::exit(1)
     });

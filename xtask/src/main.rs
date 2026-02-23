@@ -93,6 +93,15 @@ fn release(version: &str) {
         process::exit(1);
     }
 
+    let bump_type = if new.0 > current.0 {
+        "major"
+    } else if new.1 > current.1 {
+        "minor"
+    } else {
+        "patch"
+    };
+    println!("Bumping {current_str} -> {version} ({bump_type})");
+
     // Check that the changelog file is updated with the new version
     let changelog = read_file(CHANGELOG_FILE_PATH);
     let expected_heading = format!("## [{version}] - ");

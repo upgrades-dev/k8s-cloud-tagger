@@ -42,11 +42,11 @@ fn check_versions() {
   let chart = read_file(HELM_CHART_FILE_PATH);
 
   let cargo_version = extract_version(&cargo, "version =")
-    .unwrap_or_else(|| { eprintln!("No version found in Cargo.toml"); process::exit(1) });
+    .unwrap_or_else(|| { eprintln!("No version found in {CARGO_FILE_PATH}"); process::exit(1) });
   let chart_version = extract_version(&chart, "version:")
-    .unwrap_or_else(|| { eprintln!("No version found in Chart.yaml"); process::exit(1) });
+    .unwrap_or_else(|| { eprintln!("No version found in {HELM_CHART_FILE_PATH}"); process::exit(1) });
   let app_version = extract_version(&chart, "appVersion:")
-    .unwrap_or_else(|| { eprintln!("No appVersion found in Chart.yaml"); process::exit(1) });
+    .unwrap_or_else(|| { eprintln!("No appVersion found in {HELM_CHART_FILE_PATH}"); process::exit(1) });
 
   let ok = cargo_version == chart_version && cargo_version == app_version;
 
@@ -63,10 +63,24 @@ fn check_versions() {
 }
 
 fn release(version: &str) {
-  // Validate semver format x.y.z
-  let parts: Vec<&str> = version.split('.').collect();
-  if parts.len() != 3 || parts.iter().any(|p| p.parse::<u32>().is_err()) {
+  let new = parse_semver(version).unwrap_or_else(|| {
     eprintln!("Invalid version: {version}. Expected format: x.y.z");
+    process::exit(1);
+  });
+
+  // Check that the new version is an upgrade (downgrade not allowed)
+  let current_content = read_file(CARGO_FILE_PATH);
+  let current_str = extract_version(&current_content, "version=").unwrap_or_else(|| {
+    eprintln!("Could not read current version from {CARGO_FILE_PATH}");
+    process::exit(1);
+  });
+  let current = parse_semver(current_str).unwrap_or_else(|| {
+    eprintln!("Could not parse current version: {current_str}");
+    process::exit(1);
+  });
+
+  if current >= new {
+    eprintln!("New version {version} must be greater than current {current_str}");
     process::exit(1);
   }
 
@@ -80,6 +94,18 @@ fn release(version: &str) {
   run("git", &["tag", &format!("v{version}")]);
 
   println!("Done. Run: git push && git push --tags");
+}
+
+fn parse_semver(v: &str) -> Option<(u32, u32, u32)> {
+  let parts: Vec<&str> = v.split('.').collect();
+  if parts.len() != 3 {
+    return None;
+  }
+  Some((
+    parts[0].parse().ok()?,
+    parts[1].parse().ok()?,
+    parts[2].parse().ok()?,
+  ))
 }
 
 fn bump_file(path: &str, key: &str, version: &str) {
@@ -124,5 +150,19 @@ fn run(cmd: &str, args: &[&str]) {
   if !status.success() {
     eprintln!("Command failed: {cmd} {}", args.join(" "));
     process::exit(1);
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_parse_semver() {
+    assert_eq!(parse_semver("1.2.3"), Some((1, 2, 3)));
+    assert_eq!(parse_semver("0.1.0"), Some((0, 1, 0)));
+    assert_eq!(parse_semver("1.2"), None);
+    assert_eq!(parse_semver("1.2.x"), None);
+    assert_eq!(parse_semver(""), None);
   }
 }

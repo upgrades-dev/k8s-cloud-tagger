@@ -61,7 +61,7 @@ IMAGE=quay.io/upgrades/k8s-cloud-tagger-dev:sha-6f4cbfe nix run .#kind-test
 `KEEP_CLUSTER=true` prints a message saying how to use `kubectl` in case you want to inspect the cluster.
 Otherwise, the cluster is deleted after the test.
 
-## Helm
+### Helm
 
 To get the raw Kubernetes manifests:
 
@@ -162,7 +162,7 @@ kubectl annotate serviceaccount k8s-cloud-tagger \
   --overwrite
 ```
 
-## Google Artifact Registry
+### Google Artifact Registry
 
 If you use an autopilot cluster or just have private nodes, then it's easiest to use pkg.dev.
 
@@ -180,9 +180,9 @@ helm upgrade k8s-cloud-tagger helm/k8s-cloud-tagger -n k8s-cloud-tagger \
   --set image.tag="YOUR-FEATURE"
 ```
 
-# GCP
+## GCP
 
-## GCP label sanitisation
+### GCP label sanitisation
 
 Kubernetes label keys and values can contain characters that are not valid in GCP labels.
 GCP labels only allow lowercase letters, digits, hyphens, and underscores (`[a-z0-9_-]`),
@@ -200,3 +200,13 @@ For more detail on GCP label requirements, see the [Google Cloud labeling best p
 | `env: production` | `env: production` |
 | `upgrades.dev/managed-by: k8s-cloud-tagger` | `upgrades-dev-managed-by: k8s-cloud-tagger` |
 | `Team: Platform` | `team: platform` |
+
+## Release
+
+To release a new version you need to have permissions to push to `main`.
+
+1. Check out a new branch
+1. Update [CHANGELOG.md](./CHANGELOG.md) following the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and [SemVer](https://semver.org/) conventions.
+1. Run `cargo xtask release <version>`. This updates and commits the relevant files to git.
+1. Raise PR, merge PR
+1. When the PR is merged, a job will run that adds a git tag, and builds and pushes the release Dockerimage

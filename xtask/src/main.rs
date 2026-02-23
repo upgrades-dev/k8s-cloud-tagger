@@ -3,6 +3,7 @@ use std::process;
 const CARGO_FILE_PATH: &str = "Cargo.toml";
 const CARGO_LOCK_FILE_PATH: &str = "Cargo.lock";
 const HELM_CHART_FILE_PATH: &str = "helm/k8s-cloud-tagger/Chart.yaml";
+const CHANGELOG_FILE_PATH: &str = "CHANGELOG.md";
 
 fn main() {
   let task = std::env::args().nth(1);
@@ -63,12 +64,11 @@ fn check_versions() {
 }
 
 fn release(version: &str) {
+  // Parse the version strings to ints
   let new = parse_semver(version).unwrap_or_else(|| {
     eprintln!("Invalid version: {version}. Expected format: x.y.z");
     process::exit(1);
   });
-
-  // Check that the new version is an upgrade (downgrade not allowed)
   let current_content = read_file(CARGO_FILE_PATH);
   let current_str = extract_version(&current_content, "version = ").unwrap_or_else(|| {
     eprintln!("Could not read current version from {CARGO_FILE_PATH}");
@@ -79,19 +79,28 @@ fn release(version: &str) {
     process::exit(1);
   });
 
-  // Fine for as long as we stick to x.y.z
-  // If we start doing 1.0.0-alpha releases we should us a parsing lib
+  // Check that the new version is an upgrade (downgrade not allowed)
   if current >= new {
+    // Equality is lexicographical and works as long as we stick to x.y.z
+    // If we start doing 1.0.0-alpha releases we should us a parsing lib
     eprintln!("New version {version} must be greater than current {current_str}");
     process::exit(1);
   }
 
+  // Check that the changelog file is updated with the new version
+  let changelog = read_file(CHANGELOG_FILE_PATH);
+  let expected_heading = format!("## [{version}] - ");
+  if !changelog.lines().any(|line| line.starts_with(&expected_heading)) {
+    eprintln!("{CHANGELOG_FILE_PATH} does not contain a section for [{version}]");
+    eprintln!("Add '## [{version}] - YYYY-MM-DD' before releasing.");
+    process::exit(1);
+  }
   bump_file(CARGO_FILE_PATH, "version", version);
   bump_file(HELM_CHART_FILE_PATH, "version", version);
   bump_file(HELM_CHART_FILE_PATH, "appVersion", version);
 
   run("cargo", &["generate-lockfile"]);
-  run("git", &["add", CARGO_FILE_PATH, CARGO_LOCK_FILE_PATH, HELM_CHART_FILE_PATH]);
+  run("git", &["add", CARGO_FILE_PATH, CARGO_LOCK_FILE_PATH, HELM_CHART_FILE_PATH, CHANGELOG_FILE_PATH]);
   run("git", &["commit", "--message", &format!("release v{version}")]);
   run("git", &["tag", &format!("v{version}")]);
 

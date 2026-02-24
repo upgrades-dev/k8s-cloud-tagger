@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2025-02-25
+
 ### Added
 - Kubernetes operator that propagates PVC labels to GCP persistent disks
 - GCP label sanitisation (lowercasing, replacing invalid characters with hyphens)
@@ -18,3 +20,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dev image published to Quay.io
 - Integration tests
 - `cargo xtask` release tooling with version sync enforcement
+- GitHub Actions builds, tags and pushes release image to Quay.io

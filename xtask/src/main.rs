@@ -88,7 +88,7 @@ fn release(version: &str) {
     // Check that the new version is an upgrade (downgrade not allowed)
     if current >= new {
         // Equality is lexicographical and works as long as we stick to x.y.z
-        // If we start doing 1.0.0-alpha releases we should us a parsing lib
+        // If we start doing 1.0.0-alpha releases we should use a parsing lib
         eprintln!("New version {version} must be greater than current {current_str}");
         process::exit(1);
     }

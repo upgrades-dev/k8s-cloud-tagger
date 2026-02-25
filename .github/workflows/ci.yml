@@ -199,11 +199,14 @@ jobs:
       - name: Detect release commit
         id: detect
         run: |
-          MSG=$(git log -1 --format=%s)
-          if [[ "$MSG" =~ ^release\ v([0-9]+\.[0-9]+\.[0-9]+)$ ]];
-          then
+          # Check that all versions are the same
+          nix develop -c cargo xtask check
+          # Now we only need to check if the version changed in one file
+          PREV=$(git show HEAD~1:Cargo.toml | grep '^version = ' | cut -d'"' -f2)
+          CURR=$(grep '^version = ' Cargo.toml | cut -d'"' -f2)
+          if [ "$PREV" != "$CURR" ]; then
             echo "is_release=true" >> "$GITHUB_OUTPUT"
-            echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+            echo "version=${CURR}" >> "$GITHUB_OUTPUT"
           else
             echo "is_release=false" >> "$GITHUB_OUTPUT"
           fi

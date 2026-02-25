@@ -247,14 +247,14 @@ jobs:
         env:
           VERSION: ${{ needs.detect-release.outputs.version }}
         run: |
-          TAG="v${VERSION}"
-          IMAGE="quay.io/upgrades/k8s-cloud-tagger:${TAG}"
+          IMAGE="quay.io/upgrades/k8s-cloud-tagger"
+          TAG="${VERSION}"
 
           nix develop -c skopeo login quay.io \
             -u "${{ secrets.QUAY_USERNAME }}" \
             -p "${{ secrets.QUAY_PASSWORD }}"
 
-          nix develop -c skopeo copy docker-archive:result "docker://${IMAGE}"
+          nix develop -c skopeo copy docker-archive:result "docker://${IMAGE}:${TAG}"
 
           echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"

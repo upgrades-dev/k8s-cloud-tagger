@@ -199,9 +199,8 @@ jobs:
       - name: Detect release commit
         id: detect
         run: |
-          # Check that all versions are the same
-          nix develop -c cargo xtask check
-          # Now we only need to check if the version changed in one file
+          # check-versions job (earlier in CI) guarantees all version files are consistent,
+          # so we only need to check if the version changed in one file
           PREV=$(git show HEAD~1:Cargo.toml | grep '^version = ' | cut -d'"' -f2)
           CURR=$(grep '^version = ' Cargo.toml | cut -d'"' -f2)
           if [ "$PREV" != "$CURR" ]; then

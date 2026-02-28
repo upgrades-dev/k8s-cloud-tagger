@@ -211,6 +211,26 @@ For more detail on GCP label requirements, see the [Google Cloud labeling best p
 | `upgrades.dev/managed-by: k8s-cloud-tagger` | `upgrades-dev-managed-by: k8s-cloud-tagger` |
 | `Team: Platform` | `team: platform` |
 
+## GCP Workload Identity
+
+The controller requires a GCP service account with `compute.disks.get` and `compute.disks.setLabels`.
+Create a role and bind to the Kubernetes service account via Workload Identity.
+
+Set `gcp.projectId` in your Helm values —
+this is required for the KSA annotation and optional Config Connector resources.
+If your cluster has Config Connector, set `configConnector.enabled=true` and the chart will create
+the `IAMServiceAccount`, `IAMCustomRole` and `IAMPolicyMember` resources for you.
+
+```bash
+helm upgrade k8s-cloud-tagger helm/k8s-cloud-tagger -n k8s-cloud-tagger \
+  --set deployment.env.RUST_LOG="debug"\
+  --set cloudProvider=gcp \
+  --set gcp.projectId="${PROJECT_ID}" \
+  --set gcp.configConnector.enabled=true \
+  --set image.repository="${REGION}-docker.pkg.dev/${PROJECT_ID}/k8s-cloud-tagger/controller" \
+  --set image.tag="YOUR-FEATURE"
+```
+
 ## Release
 
 1. Check out a new branch

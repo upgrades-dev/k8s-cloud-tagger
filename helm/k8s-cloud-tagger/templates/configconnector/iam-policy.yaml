@@ -1,0 +1,14 @@
+{{- if and (eq .Values.cloudProvider "gcp") (.Values.gcp.configConnector.enabled) }}
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  name: {{ include "k8s-cloud-tagger.fullname" . }}-disk-labeler
+  annotations:
+    cnrm.cloud.google.com/project-id: {{ required "gcp.projectId is required" .Values.gcp.projectId }}
+spec:
+  member: serviceAccount:{{ .Values.gcp.serviceAccount | default (include "k8s-cloud-tagger.fullname" .) }}@{{ .Values.gcp.projectId }}.iam.gserviceaccount.com
+  role: projects/{{ .Values.gcp.projectId }}/roles/{{ .Values.gcp.configConnector.customRoleName }}
+  resourceRef:
+    kind: Project
+    external: projects/{{ .Values.gcp.projectId }}
+{{- end }}

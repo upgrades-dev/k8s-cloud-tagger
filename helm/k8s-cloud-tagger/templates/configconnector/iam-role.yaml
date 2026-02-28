@@ -1,0 +1,16 @@
+{{- if and (eq .Values.cloudProvider "gcp") (.Values.gcp.configConnector.enabled) }}
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMCustomRole
+metadata:
+  name: {{ include "k8s-cloud-tagger.fullname" . }}
+  annotations:
+    cnrm.cloud.google.com/project-id: {{ required "gcp.projectId is required" .Values.gcp.projectId }}
+spec:
+  title: k8s-cloud-tagger Disk Labeler
+  description: Read and set labels on Compute Engine disks
+  stage: GA
+  permissions:
+    - compute.disks.get
+    - compute.disks.setLabels
+  resourceID: {{ .Values.gcp.configConnector.customRoleName }}
+{{- end }}

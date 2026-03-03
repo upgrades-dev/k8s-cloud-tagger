@@ -19,6 +19,17 @@ mkdir -p ~/.config/nix/
 echo "extra-experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
 ```
 
+## Build
+
+```bash
+nix develop
+nix build .#image-dev
+docker load < result
+docker tag quay.io/upgrades/k8s-cloud-tagger-dev:dev \
+  quay.io/upgrades/k8s-cloud-tagger-dev:"${TAG:-}"
+docker push quay.io/upgrades/k8s-cloud-tagger-dev:"${TAG:-}"
+```
+
 ## Test
 
 ### Unit tests
@@ -66,133 +77,7 @@ nix develop
 helm template k8s-cloud-tagger helm/k8s-cloud-tagger/ --set serviceMonitor.enabled=true
 ```
 
-## Deploy
-
-### GKE
-
-Set up your shell
-```bash
-# Set your project ID and zone
-export GCP_PROJECT_ID="<your-gcp-project-id>"
-gcloud config set project "$GCP_PROJECT_ID"
-export GCP_ZONE="<your-gcp-zone>"
-```
-
-Create a low cost, minimal cluster for development:
-
-```bash
-gcloud container clusters create cluster-1 \
-    --project "${GCP_PROJECT_ID}" \
-    --zone "${GCP_ZONE}" \
-    --machine-type "e2-small" \
-    --disk-type "pd-standard" \
-    --disk-size "30" \
-    --spot \
-    --num-nodes 1 \
-    --logging=NONE \
-    --monitoring=NONE \
-    --no-enable-managed-prometheus \
-    --release-channel "stable" \
-    --workload-pool="${GCP_PROJECT_ID}.svc.id.goog" \
-    --addons GcePersistentDiskCsiDriver
-```
-
-Load the cluster's kube config:
-
-```bash
-gcloud container clusters get-credentials cluster-1 \
-  --zone "${GCP_ZONE}" \
-  --project "${GCP_PROJECT_ID}"
-```
-
-#### Helm install
-
-NOTE: The operator will crashloop on first deploy due to missing permissions. Go to the permissions section next to fix them. The reason we deploy first is we need the service account in place in K8s before we can set up permissions.
-
-You can let GitHub CI build and push your branch's image and push it to Quay, and have the cluster pull the image from there. If you use an autopilot cluster or just have private nodes, then it's easiest to use Google Artifact Registry.
-
-##### Push image to Quay
-
-Build and push an image from your branch with the [push-dev-image](https://github.com/upgrades-dev/k8s-cloud-tagger/actions/workflows/push-dev-image.yml) GHA job.
-
-```bash
-helm install k8s-cloud-tagger helm/k8s-cloud-tagger \
-  --set deployment.env.RUST_LOG="debug" \
-  --set cloudProvider=gcp \
-  --set image.repository=quay.io/upgrades/k8s-cloud-tagger-dev \
-  --set image.tag="sha-$(git rev-parse --short HEAD)"
-```
-
-Where the value for `image.tag` matches the tag of the image pushed to [Quay](https://quay.io/repository/upgrades/k8s-cloud-tagger-dev?tab=tags).
-
-##### Push image to Google Artifact Registry
-
-```bash
-nix develop
-nix build .#image-dev
-
-docker load < result
-docker tag quay.io/upgrades/k8s-cloud-tagger-dev:dev \
-  "${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/k8s-cloud-tagger/controller:YOUR-FEATURE"
-
-helm upgrade k8s-cloud-tagger helm/k8s-cloud-tagger -n k8s-cloud-tagger \
-  --set deployment.env.RUST_LOG="debug" --set cloudProvider=gcp \
-  --set image.repository="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/k8s-cloud-tagger/controller" \
-  --set image.tag="YOUR-FEATURE"
-```
-
-#### IAM setup
-
-Grant IAM permissions to the controller's service account:
-
-```bash
-# Set which K8s namespace you deployed to
-export K8S_NAMESPACE=default
-
-# Create a GCP side service account
-gcloud iam service-accounts create k8s-cloud-tagger \
-  --display-name="k8s-cloud-tagger"
-
-# Grant permissions (scope down for production use)
-gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
-  --member="serviceAccount:k8s-cloud-tagger@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
-  --role="roles/compute.storageAdmin"
-
-# Bind the GCP and K8s service accounts
-gcloud iam service-accounts add-iam-policy-binding \
-  "k8s-cloud-tagger@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
-  --role="roles/iam.workloadIdentityUser" \
-  --member="serviceAccount:${GCP_PROJECT_ID}.svc.id.goog[${K8S_NAMESPACE}/k8s-cloud-tagger]"
-
-# Add the GCP service account annotation to the controller's service account
-kubectl annotate serviceaccount k8s-cloud-tagger \
-  "iam.gke.io/gcp-service-account=k8s-cloud-tagger@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
-  --overwrite
-```
-
-#### Useful commands
-
-Scale down the cluster to zero (stop paying for compute):
-
-```bash
-gcloud container clusters resize cluster-1 \
-    --node-pool default-pool \
-    --num-nodes 0 \
-    --zone "${GCP_ZONE}" \
-    --project "${GCP_PROJECT_ID}"
-```
-
-Scale up again:
-
-```bash
-gcloud container clusters resize cluster-1 \
-    --node-pool default-pool \
-    --num-nodes 1 \
-    --zone "${GCP_ZONE}" \
-    --project "${GCP_PROJECT_ID}"
-```
-
-#### Label sanitisation
+## Label sanitisation
 
 Kubernetes label keys and values can contain characters that are not valid in GCP labels.
 GCP labels only allow lowercase letters, digits, hyphens, and underscores (`[a-z0-9_-]`),
@@ -210,26 +95,6 @@ For more detail on GCP label requirements, see the [Google Cloud labeling best p
 | `env: production` | `env: production` |
 | `upgrades.dev/managed-by: k8s-cloud-tagger` | `upgrades-dev-managed-by: k8s-cloud-tagger` |
 | `Team: Platform` | `team: platform` |
-
-## GCP Workload Identity
-
-The controller requires a GCP service account with `compute.disks.get` and `compute.disks.setLabels`.
-Create a role and bind to the Kubernetes service account via Workload Identity.
-
-Set `gcp.projectId` in your Helm values —
-this is required for the KSA annotation and optional Config Connector resources.
-If your cluster has Config Connector, set `configConnector.enabled=true` and the chart will create
-the `IAMServiceAccount`, `IAMCustomRole` and `IAMPolicyMember` resources for you.
-
-```bash
-helm upgrade k8s-cloud-tagger helm/k8s-cloud-tagger -n k8s-cloud-tagger \
-  --set deployment.env.RUST_LOG="debug"\
-  --set cloudProvider=gcp \
-  --set gcp.projectId="${PROJECT_ID}" \
-  --set gcp.configConnector.enabled=true \
-  --set image.repository="${REGION}-docker.pkg.dev/${PROJECT_ID}/k8s-cloud-tagger/controller" \
-  --set image.tag="YOUR-FEATURE"
-```
 
 ## Release
 

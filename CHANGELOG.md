@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Optional Helm [Config Connector](https://docs.cloud.google.com/config-connector/docs/overview) resources for GKE
+
 ## [0.2.1] - 2026-02-26
 
 ### Fixed
 
 - Release detection now based on version file diff instead of commit message
+
+### Added
 
 ## [0.2.0] - 2025-02-25
 

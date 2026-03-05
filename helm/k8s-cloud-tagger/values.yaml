@@ -17,9 +17,8 @@ image:
 replicaCount: 1
 
 # -- Cloud provider detection
-# Supported: auto, aws, gcp, azure
-# "auto" detects from node spec.providerID at startup.
-cloudProvider: auto
+# Supported: mock, aws, gcp, azure
+cloudProvider: mock
 
 # -- Reconciliation intervals
 requeue:
@@ -84,3 +83,13 @@ serviceMonitor:
   labels: {}
   service:
     annotations: {}
+
+# -- Google Cloud
+gcp:
+  projectId: ""
+  # Name of the service account in the cloud provider.
+  serviceAccount: "k8s-cloud-tagger"
+  configConnector:
+    enabled: false
+    # Name of the role in the cloud provider: [a-zA-Z0-9_\.]{3,64}
+    customRoleName: "k8s_cloud_tagger"

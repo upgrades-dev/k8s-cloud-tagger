@@ -127,6 +127,24 @@ mod tests {
         }
     }
 
+    fn mock_pv_azure_csi(name: &str, arm_resource_id: &str) -> PersistentVolume {
+        PersistentVolume {
+            metadata: ObjectMeta {
+                name: Some(name.into()),
+                ..Default::default()
+            },
+            spec: Some(PersistentVolumeSpec {
+                csi: Some(CSIPersistentVolumeSource {
+                    driver: "disk.csi.azure.com".into(),
+                    volume_handle: arm_resource_id.into(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
     #[tokio::test]
     async fn not_bound_returns_none() {
         let (client, _handle) = mock_client();
@@ -164,7 +182,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn bound_returns_resource() {
+    async fn bound_returns_aws_resource() {
         let (client, mut handle) = mock_client();
         let pvc = mock_pvc(Some("test-pv"));
         let pv = mock_pv_aws_csi(
@@ -193,6 +211,39 @@ mod tests {
         assert_eq!(
             cr.resource_id,
             "arn:aws:ebs:us-east-1:123456789012:volume/vol-0123456789abcdef0"
+        );
+    }
+
+    #[tokio::test]
+    async fn bound_returns_azure_resource() {
+        let (client, mut handle) = mock_client();
+        let pvc = mock_pvc(Some("test-pv"));
+        let pv = mock_pv_azure_csi(
+            "test-pv",
+            "/subscriptions/sub-id/resourceGroups/rg/providers/Microsoft.Compute/disks/disk-name",
+        );
+
+        tokio::spawn(async move {
+            let (request, send) = handle.next_request().await.expect("expected a request");
+
+            // Given a bound claim, there must be a request to get the volume.
+            assert!(request.uri().path().contains("persistentvolumes"));
+
+            // Send a response back to the controller.
+            let body = serde_json::to_vec(&pv).unwrap();
+            let response = Response::builder()
+                .status(StatusCode::OK)
+                .body(Body::from(body))
+                .unwrap();
+            send.send_response(response);
+        });
+
+        let result = pvc.resolve_cloud_resource(&client).await.unwrap();
+
+        let cr = result.expect("expected CloudResource");
+        assert_eq!(
+            cr.resource_id,
+            "/subscriptions/sub-id/resourceGroups/rg/providers/Microsoft.Compute/disks/disk-name"
         );
     }
 

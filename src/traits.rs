@@ -11,7 +11,7 @@ use std::str::FromStr;
 #[derive(Debug, Clone)]
 pub struct CloudResource {
     /// The cloud provider that owns this resource.
-    pub provider: CloudProvider,
+    pub provider: CloudProvider, // TODO https://github.com/upgrades-dev/k8s-cloud-tagger/issues/85
     /// Provider-specific resource identifier (e.g. `vol-0abc123`).
     pub resource_id: String,
     /// Labels to propagate from Kubernetes to the cloud resource.

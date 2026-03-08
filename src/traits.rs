@@ -24,6 +24,7 @@ pub enum CloudProvider {
     /// For testing. Always success in the Cloud Provider API.
     Mock,
     Gcp,
+    Azure,
 }
 
 impl std::fmt::Display for CloudProvider {
@@ -31,6 +32,7 @@ impl std::fmt::Display for CloudProvider {
         match self {
             CloudProvider::Mock => write!(f, "Mock"),
             CloudProvider::Gcp => write!(f, "GCP"),
+            CloudProvider::Azure => write!(f, "Azure"),
         }
     }
 }
@@ -41,6 +43,7 @@ impl FromStr for CloudProvider {
         match s.to_uppercase().as_str() {
             "MOCK" => Ok(CloudProvider::Mock),
             "GCP" => Ok(CloudProvider::Gcp),
+            "AZURE" => Ok(CloudProvider::Azure),
             _ => Err(format!("invalid cloud provider: {}", s)),
         }
     }

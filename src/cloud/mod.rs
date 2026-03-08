@@ -1,9 +1,11 @@
+mod azure;
 mod gcp;
 mod mock;
 
 pub use mock::MockClient;
 
 use crate::cloud::gcp::GcpClient;
+use crate::cloud::azure::AzureClient;
 use crate::error::Error;
 use crate::metrics::API_CALL_DURATION;
 use crate::traits::CloudProvider;
@@ -65,5 +67,6 @@ pub async fn create_client(provider: &CloudProvider) -> Result<Box<dyn CloudClie
     match provider {
         CloudProvider::Mock => Ok(Box::new(MockClient::default())),
         CloudProvider::Gcp => Ok(Box::new(GcpClient::new().await?)),
+        CloudProvider::Azure => Ok(Box::new(AzureClient::new()?)),
     }
 }

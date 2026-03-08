@@ -7,8 +7,7 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 
 const ARM_API_VERSION: &str = "2024-03-02";
-const IMDS_TOKEN_URL: &str =
-    "http://169.254.169.254/metadata/identity/oauth2/token\
+const IMDS_TOKEN_URL: &str = "http://169.254.169.254/metadata/identity/oauth2/token\
      ?api-version=2018-02-01\
      &resource=https%3A%2F%2Fmanagement.azure.com%2F";
 
@@ -81,12 +80,7 @@ fn sanitise_azure_tag_value(input: &str) -> String {
 fn sanitise_tags(labels: &Labels) -> BTreeMap<String, String> {
     labels
         .iter()
-        .map(|(k, v)| {
-            (
-                sanitise_azure_tag_key(k),
-                sanitise_azure_tag_value(v),
-            )
-        })
+        .map(|(k, v)| (sanitise_azure_tag_key(k), sanitise_azure_tag_value(v)))
         .collect()
 }
 
@@ -162,12 +156,16 @@ mod tests {
 
     #[test]
     fn parse_valid_disk() {
-        let id = "/subscriptions/sub-id/resourceGroups/my-rg/providers/Microsoft.Compute/disks/my-disk";
+        let id =
+            "/subscriptions/sub-id/resourceGroups/my-rg/providers/Microsoft.Compute/disks/my-disk";
         let disk = AzureDisk::parse(id).unwrap();
         assert_eq!(disk.resource_id, id);
         assert_eq!(
             disk.api_url(),
-            format!("https://management.azure.com{}?api-version={}", id, ARM_API_VERSION)
+            format!(
+                "https://management.azure.com{}?api-version={}",
+                id, ARM_API_VERSION
+            )
         );
     }
 
@@ -176,18 +174,31 @@ mod tests {
         assert!(AzureDisk::parse("not-a-resource-id").is_none());
         assert!(AzureDisk::parse("").is_none());
         // Wrong provider
-        assert!(AzureDisk::parse(
-            "/subscriptions/s/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/sa"
-        )
-        .is_none());
+        assert!(
+            AzureDisk::parse(
+                "/subscriptions/s/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/sa"
+            )
+            .is_none()
+        );
         // Too few segments
-        assert!(AzureDisk::parse("/subscriptions/s/resourceGroups/rg/providers/Microsoft.Compute/disks").is_none());
+        assert!(
+            AzureDisk::parse(
+                "/subscriptions/s/resourceGroups/rg/providers/Microsoft.Compute/disks"
+            )
+            .is_none()
+        );
     }
 
     #[test]
     fn sanitise_tag_key_replaces_disallowed() {
-        assert_eq!(sanitise_azure_tag_key("app.kubernetes.io/name"), "app.kubernetes.io-name");
-        assert_eq!(sanitise_azure_tag_key("key<with>bad%chars"), "key-with-bad-chars");
+        assert_eq!(
+            sanitise_azure_tag_key("app.kubernetes.io/name"),
+            "app.kubernetes.io-name"
+        );
+        assert_eq!(
+            sanitise_azure_tag_key("key<with>bad%chars"),
+            "key-with-bad-chars"
+        );
         assert_eq!(sanitise_azure_tag_key("normal-key"), "normal-key");
     }
 

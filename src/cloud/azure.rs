@@ -8,8 +8,8 @@ use std::collections::BTreeMap;
 
 const ARM_API_VERSION: &str = "2024-03-02";
 const IMDS_TOKEN_URL: &str = "http://169.254.169.254/metadata/identity/oauth2/token\
-     ?api-version=2018-02-01\
-     &resource=https%3A%2F%2Fmanagement.azure.com%2F";
+?api-version=2018-02-01\
+&resource=https%3A%2F%2Fmanagement.azure.com%2F";
 
 /// A parsed Azure Managed Disk ARM resource ID.
 ///
@@ -89,6 +89,12 @@ struct ImdsTokenResponse {
     access_token: String,
 }
 
+#[derive(Deserialize)]
+struct DiskResponse {
+    #[serde(default)]
+    tags: BTreeMap<String, String>,
+}
+
 pub struct AzureClient {
     http: Client,
 }
@@ -115,6 +121,25 @@ impl AzureClient {
             .await?;
         Ok(resp.access_token)
     }
+
+    /// GET the current tags on the disk so we can merge rather than overwrite.
+    async fn get_disk_response(
+        &self,
+        disk: &AzureDisk,
+        token: &str,
+    ) -> Result<DiskResponse, Error> {
+        let resp: DiskResponse = self
+            .http
+            .get(disk.api_url())
+            .bearer_auth(token)
+            .query(&[("$select", "tags")])
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        Ok(resp)
+    }
 }
 
 #[async_trait]
@@ -128,9 +153,14 @@ impl CloudClient for AzureClient {
             .ok_or_else(|| Error::CloudApi(format!("Invalid Azure resource ID: {resource_id}")))?;
 
         let token = self.imds_token().await?;
-        let tags = sanitise_tags(labels);
 
-        let body = serde_json::json!({ "tags": tags });
+        let disk_response = self.get_disk_response(&disk, &token).await?;
+
+        let sanitised = sanitise_tags(labels);
+        let mut merged = disk_response.tags;
+        merged.extend(sanitised);
+
+        let body = serde_json::json!({ "tags": merged });
 
         self.http
             .patch(disk.api_url())
@@ -142,7 +172,7 @@ impl CloudClient for AzureClient {
 
         tracing::debug!(
             disk = %resource_id,
-            ?tags,
+            tags = ?merged,
             "Azure: tags set"
         );
 

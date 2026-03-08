@@ -4,8 +4,8 @@ mod mock;
 
 pub use mock::MockClient;
 
-use crate::cloud::gcp::GcpClient;
 use crate::cloud::azure::AzureClient;
+use crate::cloud::gcp::GcpClient;
 use crate::error::Error;
 use crate::metrics::API_CALL_DURATION;
 use crate::traits::CloudProvider;

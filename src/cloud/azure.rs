@@ -32,7 +32,7 @@ impl AzureDisk {
         if parts.len() != 9 {
             return None;
         }
-        if parts[0] != ""
+        if !parts[0].is_empty()
             || !parts[1].eq_ignore_ascii_case("subscriptions")
             || !parts[3].eq_ignore_ascii_case("resourceGroups")
             || !parts[5].eq_ignore_ascii_case("providers")

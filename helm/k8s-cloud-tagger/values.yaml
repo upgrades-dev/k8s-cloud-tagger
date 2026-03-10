@@ -84,6 +84,24 @@ serviceMonitor:
   service:
     annotations: {}
 
+# -- Azure
+azure:
+  resourceGroup: ""
+  location: ""
+  subscriptionId: ""
+  # Name of the managed identity in the cloud provider.
+  managedIdentity: "k8s-cloud-tagger"
+  serviceOperator:
+    enabled: false
+    # OIDC issuer URL of the AKS cluster
+    # (az aks show --query oidcIssuerProfile.issuerUrl)
+    oidcIssuerUrl: ""
+    # Name of the custom role definition in the cloud provider.
+    customRoleName: "k8s-cloud-tagger"
+    # Name of the ConfigMap ASO writes the managed identity principalId into.
+    # Defaults to <fullname>-identity.
+    identityConfigMap: ""
+
 # -- Google Cloud
 gcp:
   projectId: ""

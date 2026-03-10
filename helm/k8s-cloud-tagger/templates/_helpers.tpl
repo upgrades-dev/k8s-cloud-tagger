@@ -46,6 +46,22 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Azure managed identity resource name.
+Uses azure.managedIdentity if set, otherwise falls back to the fullname.
+*/}}
+{{- define "k8s-cloud-tagger.azure.managedIdentity" -}}
+{{- .Values.azure.managedIdentity | default (include "k8s-cloud-tagger.fullname" .) }}
+{{- end }}
+
+{{/*
+Name of the ConfigMap ASO writes the UserAssignedIdentity principalId into.
+Override with azure.serviceOperator.identityConfigMap.
+*/}}
+{{- define "k8s-cloud-tagger.azure.identityConfigMap" -}}
+{{- .Values.azure.serviceOperator.identityConfigMap | default (printf "%s-identity" (include "k8s-cloud-tagger.fullname" .)) }}
+{{- end }}
+
+{{/*
 Container image reference.
 */}}
 {{- define "k8s-cloud-tagger.image" -}}

@@ -1,0 +1,20 @@
+{{- if and (eq .Values.cloudProvider "azure") (.Values.azure.serviceOperator.enabled) }}
+apiVersion: authorization.azure.com/v1api20220401
+kind: RoleAssignment
+metadata:
+  name: {{ include "k8s-cloud-tagger.fullname" . }}-disk-tagger
+spec:
+  owner:
+    name: {{ required "azure.subscriptionId is required" .Values.azure.subscriptionId }}
+    group: resources.azure.com
+    kind: Subscription
+  # principalId is read from the UserAssignedIdentity status via a ConfigMap written by ASO
+  principalIdFromConfig:
+    name: {{ include "k8s-cloud-tagger.azure.identityConfigMap" . }}
+    key: principalId
+  principalType: ServicePrincipal
+  roleDefinitionReference:
+    group: authorization.azure.com
+    kind: RoleDefinition
+    name: {{ include "k8s-cloud-tagger.fullname" . }}
+{{- end }}

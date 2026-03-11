@@ -34,6 +34,19 @@ PVC created/updated
    Requeue after requeue_success (default 5m)
 ```
 
+## Design constraints for production
+
+This application must install in one command. Typical users manage over 1,000 kubernetes clusters.
+
+No human is going to run a `kubectl` command.
+
+We recommend later versions of `helm`, `kubernetes`, Azure Service Operator, Google Config Connector,
+and Amazon Controllers for Kubernetes. If features are ambiguous, we target the latest stable release.
+
+We expect users may run `helm template`, patch with `kustomize`, and then deploy with ArgoCD.
+
+Solve complicated problems in the Rust code. Try to keep Helm simple, deployments need to be deterministic.
+
 ## Module map
 
 | Path | Role |

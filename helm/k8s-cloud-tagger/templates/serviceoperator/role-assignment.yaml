@@ -15,8 +15,8 @@ spec:
     name: {{ .Values.azure.serviceOperator.identityConfigMap | default (printf "%s-identity" (include "k8s-cloud-tagger.fullname" .)) }}
     key: principalId
   principalType: ServicePrincipal
+  # Tag Contributor built-in role — lets you manage tags on any resource without
+  # granting access to the resources themselves.
   roleDefinitionReference:
-    group: authorization.azure.com
-    kind: RoleDefinition
-    name: {{ include "k8s-cloud-tagger.fullname" . }}
+    armId: /providers/Microsoft.Authorization/roleDefinitions/4a9ae827-6dc8-4573-8ac7-8239d42aa03f
 {{- end }}

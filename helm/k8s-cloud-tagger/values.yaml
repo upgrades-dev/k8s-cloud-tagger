@@ -96,8 +96,6 @@ azure:
     # OIDC issuer URL of the AKS cluster
     # (az aks show --query oidcIssuerProfile.issuerUrl)
     oidcIssuerUrl: ""
-    # Name of the custom role definition in the cloud provider.
-    customRoleName: "k8s-cloud-tagger"
     # Name of the ConfigMap ASO writes the managed identity principalId into.
     # Defaults to <fullname>-identity.
     identityConfigMap: ""

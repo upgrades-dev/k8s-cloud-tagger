@@ -1,0 +1,22 @@
+{{- if and (eq .Values.cloudProvider "azure") (.Values.azure.serviceOperator.enabled) }}
+apiVersion: authorization.azure.com/v1api20220401
+kind: RoleAssignment
+metadata:
+  name: {{ include "k8s-cloud-tagger.fullname" . }}-disk-tagger
+  annotations:
+    serviceoperator.azure.com/reconcile-policy: detach-on-delete
+spec:
+  owner:
+    name: {{ required "azure.serviceOperator.subscriptionId is required" .Values.azure.serviceOperator.subscriptionId }}
+    group: resources.azure.com
+    kind: Subscription
+  # principalId is read from the UserAssignedIdentity status via a ConfigMap written by ASO
+  principalIdFromConfig:
+    name: {{ include "k8s-cloud-tagger.fullname" . }}
+    key: principalId
+  principalType: ServicePrincipal
+  # Tag Contributor built-in role — lets you manage tags on any resource without
+  # granting access to the resources themselves.
+  roleDefinitionReference:
+    armId: /providers/Microsoft.Authorization/roleDefinitions/4a9ae827-6dc8-4573-8ac7-8239d42aa03f
+{{- end }}

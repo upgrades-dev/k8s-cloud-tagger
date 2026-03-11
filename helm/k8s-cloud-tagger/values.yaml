@@ -84,6 +84,17 @@ serviceMonitor:
   service:
     annotations: {}
 
+# -- Azure
+azure:
+  serviceOperator:
+    enabled: false
+    resourceGroup: ""
+    location: ""
+    subscriptionId: ""
+    # OIDC issuer URL of the AKS cluster
+    # (az aks show --query oidcIssuerProfile.issuerUrl)
+    oidcIssuerUrl: ""
+
 # -- Google Cloud
 gcp:
   projectId: ""

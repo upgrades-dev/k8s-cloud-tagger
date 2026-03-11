@@ -2,7 +2,9 @@
 apiVersion: managedidentity.azure.com/v1api20230131
 kind: UserAssignedIdentity
 metadata:
-  name: {{ include "k8s-cloud-tagger.azure.managedIdentity" . }}
+  name: {{ .Values.azure.managedIdentity }}
+  annotations:
+    serviceoperator.azure.com/reconcile-policy: detach-on-delete
 spec:
   location: {{ required "azure.location is required" .Values.azure.location }}
   owner:
@@ -10,6 +12,9 @@ spec:
   operatorSpec:
     configMaps:
       principalId:
-        name: {{ include "k8s-cloud-tagger.azure.identityConfigMap" . }}
+        name: {{ .Values.azure.serviceOperator.identityConfigMap | default (printf "%s-identity" (include "k8s-cloud-tagger.fullname" .)) }}
         key: principalId
+      clientId:
+        name: {{ .Values.azure.serviceOperator.identityConfigMap | default (printf "%s-identity" (include "k8s-cloud-tagger.fullname" .)) }}
+        key: clientId
 {{- end }}

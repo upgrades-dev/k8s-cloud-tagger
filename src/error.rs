@@ -17,6 +17,9 @@ pub enum Error {
 
     #[error("GCP auth error: {0}")]
     Gcp(#[from] gcp_auth::Error),
+
+    #[error("Azure auth error: {0}")]
+    Azure(String),
 }
 
 impl Error {
@@ -28,6 +31,7 @@ impl Error {
             Error::CloudApi(_) => "cloud_api",
             Error::Config(_) => "config",
             Error::Gcp(_) => "gcp",
+            Error::Azure(_) => "azure",
             Error::Reqwest(_) => "http",
         }
     }

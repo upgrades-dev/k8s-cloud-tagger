@@ -7,9 +7,9 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 
 const ARM_API_VERSION: &str = "2024-03-02";
-const IMDS_TOKEN_URL: &str = "http://169.254.169.254/metadata/identity/oauth2/token\
-?api-version=2018-02-01\
-&resource=https%3A%2F%2Fmanagement.azure.com%2F";
+const DEFAULT_AUTHORITY_HOST: &str = "https://login.microsoftonline.com/";
+const ARM_SCOPE: &str = "https://management.azure.com/.default";
+const CLIENT_ASSERTION_TYPE: &str = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
 
 /// A parsed Azure Managed Disk ARM resource ID.
 ///
@@ -85,7 +85,7 @@ fn sanitise_tags(labels: &Labels) -> BTreeMap<String, String> {
 }
 
 #[derive(Deserialize)]
-struct ImdsTokenResponse {
+struct TokenResponse {
     access_token: String,
 }
 
@@ -97,28 +97,67 @@ struct DiskResponse {
 
 pub struct AzureClient {
     http: Client,
+    client_id: String,
+    tenant_id: String,
+    authority_host: String,
+    federated_token_file: String,
 }
 
 impl AzureClient {
     pub fn new() -> Result<Self, Error> {
+        let client_id = std::env::var("AZURE_CLIENT_ID")
+            .map_err(|_| Error::Azure("AZURE_CLIENT_ID not set".into()))?;
+        let tenant_id = std::env::var("AZURE_TENANT_ID")
+            .map_err(|_| Error::Azure("AZURE_TENANT_ID not set".into()))?;
+        let authority_host = std::env::var("AZURE_AUTHORITY_HOST")
+            .unwrap_or_else(|_| DEFAULT_AUTHORITY_HOST.to_string());
+        let federated_token_file = std::env::var("AZURE_FEDERATED_TOKEN_FILE")
+            .map_err(|_| Error::Azure("AZURE_FEDERATED_TOKEN_FILE not set".into()))?;
         Ok(Self {
             http: http_client()?,
+            client_id,
+            tenant_id,
+            authority_host,
+            federated_token_file,
         })
     }
 
-    /// Make a bearer token using the Azure Instance Metadata Service (IMDS).
+    /// Obtain a bearer token using AKS Workload Identity.
     ///
-    /// This works on any Azure VM or AKS node/pod with a managed identity assigned.
-    async fn imds_token(&self) -> Result<String, Error> {
-        let resp: ImdsTokenResponse = self
+    /// The AKS Workload Identity webhook injects four environment variables:
+    /// - `AZURE_FEDERATED_TOKEN_FILE` — path to the projected K8s service account token
+    /// - `AZURE_CLIENT_ID`            — the managed identity's client ID
+    /// - `AZURE_TENANT_ID`            — the Azure AD tenant ID
+    /// - `AZURE_AUTHORITY_HOST`       — AAD endpoint (defaults to https://login.microsoftonline.com/)
+    ///
+    /// The K8s token is exchanged for an ARM bearer token via the OAuth 2.0
+    /// client credentials flow with a federated assertion.
+    async fn workload_identity_token(&self) -> Result<String, Error> {
+        let assertion = std::fs::read_to_string(&self.federated_token_file).map_err(|e| {
+            Error::Azure(format!("Failed to read {}: {e}", self.federated_token_file))
+        })?;
+
+        let url = format!(
+            "{}{}/oauth2/v2.0/token",
+            self.authority_host, self.tenant_id
+        );
+
+        let resp: TokenResponse = self
             .http
-            .get(IMDS_TOKEN_URL)
-            .header("Metadata", "true")
+            .post(&url)
+            .form(&[
+                ("grant_type", "client_credentials"),
+                ("client_assertion_type", CLIENT_ASSERTION_TYPE),
+                ("client_assertion", assertion.trim()),
+                ("client_id", &self.client_id),
+                ("scope", ARM_SCOPE),
+            ])
             .send()
             .await?
             .error_for_status()?
             .json()
             .await?;
+
         Ok(resp.access_token)
     }
 
@@ -152,7 +191,7 @@ impl CloudClient for AzureClient {
         let disk = AzureDisk::parse(resource_id)
             .ok_or_else(|| Error::CloudApi(format!("Invalid Azure resource ID: {resource_id}")))?;
 
-        let token = self.imds_token().await?;
+        let token = self.workload_identity_token().await?;
 
         let disk_response = self.get_disk_response(&disk, &token).await?;
 

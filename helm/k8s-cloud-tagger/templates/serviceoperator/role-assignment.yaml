@@ -7,9 +7,7 @@ metadata:
     serviceoperator.azure.com/reconcile-policy: detach-on-delete
 spec:
   owner:
-    name: {{ required "azure.serviceOperator.subscriptionId is required" .Values.azure.serviceOperator.subscriptionId }}
-    group: resources.azure.com
-    kind: Subscription
+    armId: /subscriptions/{{ required "azure.serviceOperator.subscriptionId is required" .Values.azure.serviceOperator.subscriptionId }}
   # principalId is read from the UserAssignedIdentity status via a ConfigMap written by ASO
   principalIdFromConfig:
     name: {{ include "k8s-cloud-tagger.fullname" . }}

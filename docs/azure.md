@@ -5,10 +5,10 @@
 The controller authenticates to Azure using
 [AKS Workload Identity](https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview).
 
-The chart sets the `azure.workload.identity/use: "true"` label on the ServiceAccount and the
-`azure.workload.identity/client-id` annotation (from `azure.clientId`). At pod creation time the
-AKS mutating admission webhook reads the annotation and injects `AZURE_CLIENT_ID` and a projected
-service account token volume into the pod.
+The chart sets the `azure.workload.identity/use: "true"` label on the pod template and the
+`azure.workload.identity/client-id` annotation (from `azure.clientId`) on the ServiceAccount.
+At pod creation time the AKS mutating admission webhook reads these and injects `AZURE_CLIENT_ID`,
+`AZURE_TENANT_ID`, `AZURE_AUTHORITY_HOST`, and `AZURE_FEDERATED_TOKEN_FILE` into the pod.
 
 **Prerequisites:** the AKS cluster must have both the OIDC issuer and Workload Identity enabled:
 
@@ -24,26 +24,21 @@ az aks update \
 
 The Helm chart has optional support for
 [Azure Service Operator](https://azure.github.io/azure-service-operator/) (ASO).
-When enabled, ASO creates the required Azure resources for you:
+When `azure.serviceOperator.enabled=true`, ASO creates and manages the required Azure resources
+(managed identity, federated identity credential, and role assignment). All ASO resources created
+by this chart are `detach-on-delete` — `helm uninstall` will not delete them in Azure.
 
-- `ResourceGroup` — adopted from the existing resource group (detach-on-delete so `helm uninstall`
-  does not delete the resource group)
-- `UserAssignedIdentity` — the managed identity the controller runs as
-- `FederatedIdentityCredential` — binds the managed identity to the Kubernetes ServiceAccount
-- `RoleAssignment` — grants the built-in
-  [Tag Contributor](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/management-and-governance#tag-contributor)
-  role at subscription scope, allowing the controller to manage tags on any resource
-  without broader access
-
-Because `azure.clientId` must be known at install time, **pre-provision the managed identity
-before running `helm install`**:
+The managed identity must be pre-created before `helm install` because its client ID must be
+known at install time to annotate the ServiceAccount. ASO will then manage the identity going
+forward.
 
 ```bash
 export RESOURCE_GROUP=
 export LOCATION=
 export SUBSCRIPTION_ID=
+export CLUSTER_NAME=
 
-# Pre-provision the managed identity so the client ID is available for helm
+# Create the managed identity
 az identity create \
   --resource-group $RESOURCE_GROUP \
   --name k8s-cloud-tagger \
@@ -57,7 +52,7 @@ export CLIENT_ID=$(az identity show \
 
 export OIDC_ISSUER_URL=$(az aks show \
   --resource-group $RESOURCE_GROUP \
-  --name <clusterName> \
+  --name $CLUSTER_NAME \
   --query oidcIssuerProfile.issuerUrl \
   --output tsv)
 
@@ -73,10 +68,10 @@ helm install k8s-cloud-tagger helm/k8s-cloud-tagger \
   --set azure.serviceOperator.oidcIssuerUrl="$OIDC_ISSUER_URL"
 ```
 
-ASO will adopt the pre-existing identity and resource group (both carry the
-`serviceoperator.azure.com/reconcile-policy: detach-on-delete` annotation), reconcile the
-`FederatedIdentityCredential` and `RoleAssignment`, and the controller pod will start healthy
-once the role assignment propagates (typically within a minute).
+ASO will create the `FederatedIdentityCredential` and
+[Tag Contributor](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/management-and-governance#tag-contributor)
+`RoleAssignment` at subscription scope. The controller pod will start healthy once the role
+assignment propagates (typically within a minute).
 
 ## Build an AKS cluster for testing
 
@@ -159,23 +154,7 @@ AKS nodes have unrestricted outbound internet access by default, so images are p
 from `quay.io` — no private registry setup is required.
 
 ```bash
-# Pre-provision the managed identity (see "Azure Service Operator" section above)
-az identity create \
-  --resource-group $RESOURCE_GROUP \
-  --name k8s-cloud-tagger \
-  --location $LOCATION
-
-export CLIENT_ID=$(az identity show \
-  --resource-group $RESOURCE_GROUP \
-  --name k8s-cloud-tagger \
-  --query clientId \
-  --output tsv)
-
-export OIDC_ISSUER_URL=$(az aks show \
-  --resource-group $RESOURCE_GROUP \
-  --name $CLUSTER_NAME \
-  --query oidcIssuerProfile.issuerUrl \
-  --output tsv)
+# CLIENT_ID and OIDC_ISSUER_URL are already set from the steps above
 
 helm install k8s-cloud-tagger helm/k8s-cloud-tagger \
   --namespace k8s-cloud-tagger \

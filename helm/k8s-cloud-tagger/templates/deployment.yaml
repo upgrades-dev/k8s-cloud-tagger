@@ -94,6 +94,9 @@ spec:
               - serviceAccountToken:
                   expirationSeconds: 3600
                   path: token
+                  {{- if eq .Values.cloudProvider "azure" }}
+                  audience: api://AzureADTokenExchange
+                  {{- end }}
               - configMap:
                   name: kube-root-ca.crt
                   items:

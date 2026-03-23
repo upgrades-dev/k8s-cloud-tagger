@@ -89,6 +89,9 @@ azure:
   # Required when cloudProvider=azure so the webhook can inject AZURE_CLIENT_ID into the pod.
   # Obtain with: az identity show --resource-group <rg> --name k8s-cloud-tagger --query clientId -o tsv
   clientId: ""
+  # Name of the Azure user-assigned managed identity resource (and the ConfigMap ASO writes its IDs into).
+  # Change this if the name conflicts with an existing identity in your resource group.
+  identityName: "k8s-cloud-tagger-identity"
   serviceOperator:
     enabled: false
     resourceGroup: ""

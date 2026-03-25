@@ -1,0 +1,10 @@
+{{- if and (eq .Values.cloudProvider "azure") (.Values.azure.serviceOperator.enabled) }}
+apiVersion: resources.azure.com/v1api20200601
+kind: ResourceGroup
+metadata:
+  name: {{ required "azure.serviceOperator.resourceGroup is required" .Values.azure.serviceOperator.resourceGroup }}
+  annotations:
+    serviceoperator.azure.com/reconcile-policy: detach-on-delete
+spec:
+  location: {{ required "azure.serviceOperator.location is required" .Values.azure.serviceOperator.location }}
+{{- end }}

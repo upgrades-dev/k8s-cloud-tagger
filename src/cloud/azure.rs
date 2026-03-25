@@ -3,10 +3,10 @@ use crate::error::Error;
 use crate::tls::http_client;
 use async_trait::async_trait;
 use reqwest::Client;
-use serde::Deserialize;
+use serde::Serialize;
 use std::collections::BTreeMap;
 
-const ARM_API_VERSION: &str = "2024-03-02";
+const TAGS_API_VERSION: &str = "2021-04-01";
 const DEFAULT_AUTHORITY_HOST: &str = "https://login.microsoftonline.com/";
 const ARM_SCOPE: &str = "https://management.azure.com/.default";
 const CLIENT_ASSERTION_TYPE: &str = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
@@ -46,11 +46,11 @@ impl AzureDisk {
         })
     }
 
-    /// Build the ARM management URL for this disk.
-    pub fn api_url(&self) -> String {
+    /// Build the ARM Tags API URL for this disk.
+    pub fn tags_url(&self) -> String {
         format!(
-            "https://management.azure.com{}?api-version={}",
-            self.resource_id, ARM_API_VERSION
+            "https://management.azure.com{}/providers/Microsoft.Resources/tags/default?api-version={}",
+            self.resource_id, TAGS_API_VERSION
         )
     }
 }
@@ -84,14 +84,19 @@ fn sanitise_tags(labels: &Labels) -> BTreeMap<String, String> {
         .collect()
 }
 
-#[derive(Deserialize)]
+#[derive(serde::Deserialize)]
 struct TokenResponse {
     access_token: String,
 }
 
-#[derive(Deserialize)]
-struct DiskResponse {
-    #[serde(default)]
+#[derive(Serialize)]
+struct TagsPatch {
+    operation: &'static str,
+    properties: TagsProperties,
+}
+
+#[derive(Serialize)]
+struct TagsProperties {
     tags: BTreeMap<String, String>,
 }
 
@@ -160,25 +165,6 @@ impl AzureClient {
 
         Ok(resp.access_token)
     }
-
-    /// GET the current tags on the disk so we can merge rather than overwrite.
-    async fn get_disk_response(
-        &self,
-        disk: &AzureDisk,
-        token: &str,
-    ) -> Result<DiskResponse, Error> {
-        let resp: DiskResponse = self
-            .http
-            .get(disk.api_url())
-            .bearer_auth(token)
-            .query(&[("$select", "tags")])
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
-        Ok(resp)
-    }
 }
 
 #[async_trait]
@@ -193,16 +179,16 @@ impl CloudClient for AzureClient {
 
         let token = self.workload_identity_token().await?;
 
-        let disk_response = self.get_disk_response(&disk, &token).await?;
-
         let sanitised = sanitise_tags(labels);
-        let mut merged = disk_response.tags;
-        merged.extend(sanitised);
-
-        let body = serde_json::json!({ "tags": merged });
+        let body = TagsPatch {
+            operation: "Merge",
+            properties: TagsProperties {
+                tags: sanitised.clone(),
+            },
+        };
 
         self.http
-            .patch(disk.api_url())
+            .patch(disk.tags_url())
             .bearer_auth(&token)
             .json(&body)
             .send()
@@ -211,8 +197,8 @@ impl CloudClient for AzureClient {
 
         tracing::debug!(
             disk = %resource_id,
-            tags = ?merged,
-            "Azure: tags set"
+            tags = ?sanitised,
+            "Azure: tags merged"
         );
 
         Ok(())
@@ -230,10 +216,10 @@ mod tests {
         let disk = AzureDisk::parse(id).unwrap();
         assert_eq!(disk.resource_id, id);
         assert_eq!(
-            disk.api_url(),
+            disk.tags_url(),
             format!(
-                "https://management.azure.com{}?api-version={}",
-                id, ARM_API_VERSION
+                "https://management.azure.com{}/providers/Microsoft.Resources/tags/default?api-version={}",
+                id, TAGS_API_VERSION
             )
         );
     }

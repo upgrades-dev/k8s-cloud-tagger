@@ -76,7 +76,7 @@ mod tests {
     use crate::traits::{CloudProvider, CloudTaggable};
     use http::{Request, Response, StatusCode};
     use k8s_openapi::api::core::v1::{
-        CSIPersistentVolumeSource, PersistentVolume, PersistentVolumeClaim,
+        CSIPersistentVolumeSource, HostPathVolumeSource, PersistentVolume, PersistentVolumeClaim,
         PersistentVolumeClaimSpec, PersistentVolumeSpec,
     };
     use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
@@ -88,6 +88,22 @@ mod tests {
         let (mock_service, handle) = mock::pair::<Request<Body>, Response<Body>>();
         let client = Client::new(mock_service, "default");
         (client, handle)
+    }
+
+    fn respond_with_pv(
+        mut handle: mock::Handle<Request<Body>, Response<Body>>,
+        pv: PersistentVolume,
+    ) {
+        tokio::spawn(async move {
+            let (request, send) = handle.next_request().await.expect("expected a request");
+            assert!(request.uri().path().contains("persistentvolumes"));
+            let body = serde_json::to_vec(&pv).unwrap();
+            let response = Response::builder()
+                .status(StatusCode::OK)
+                .body(Body::from(body))
+                .unwrap();
+            send.send_response(response);
+        });
     }
 
     fn mock_pvc(pv_name: Option<&str>) -> PersistentVolumeClaim {
@@ -173,6 +189,23 @@ mod tests {
         }
     }
 
+    fn mock_pv_local(name: &str, path: &str) -> PersistentVolume {
+        PersistentVolume {
+            metadata: ObjectMeta {
+                name: Some(name.into()),
+                ..Default::default()
+            },
+            spec: Some(PersistentVolumeSpec {
+                host_path: Some(HostPathVolumeSource {
+                    path: path.into(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
     #[tokio::test]
     async fn not_bound_returns_none() {
         let (client, _handle) = mock_client();
@@ -185,24 +218,11 @@ mod tests {
 
     #[tokio::test]
     async fn pv_found_but_not_understood() {
-        let (client, mut handle) = mock_client();
+        let (client, handle) = mock_client();
         let pvc = mock_pvc(Some("test-pv"));
         let pv = mock_pv_not_understood("test-pv");
 
-        tokio::spawn(async move {
-            let (request, send) = handle.next_request().await.expect("expected a request");
-
-            // Given a bound claim, there must be a request to get the volume.
-            assert!(request.uri().path().contains("persistentvolumes"));
-
-            // Send a response back to the controller.
-            let body = serde_json::to_vec(&pv).unwrap();
-            let response = Response::builder()
-                .status(StatusCode::OK)
-                .body(Body::from(body))
-                .unwrap();
-            send.send_response(response);
-        });
+        respond_with_pv(handle, pv);
 
         let result = pvc.resolve_cloud_resource(&client).await.unwrap();
 
@@ -211,61 +231,35 @@ mod tests {
 
     #[tokio::test]
     async fn bound_returns_aws_resource() {
-        let (client, mut handle) = mock_client();
+        let (client, handle) = mock_client();
         let pvc = mock_pvc(Some("test-pv"));
         let pv = mock_pv_aws_csi(
             "test-pv",
-            "arn:aws:ebs:us-east-1:123456789012:volume/vol-0123456789abcdef0",
+            "arn:aws:ebs:us-east-1:123456789012:volume/vol-0123456789cafe0",
         );
 
-        tokio::spawn(async move {
-            let (request, send) = handle.next_request().await.expect("expected a request");
-
-            // Given a bound claim, there must be a request to get the volume.
-            assert!(request.uri().path().contains("persistentvolumes"));
-
-            // Send a response back to the controller.
-            let body = serde_json::to_vec(&pv).unwrap();
-            let response = Response::builder()
-                .status(StatusCode::OK)
-                .body(Body::from(body))
-                .unwrap();
-            send.send_response(response);
-        });
+        respond_with_pv(handle, pv);
 
         let result = pvc.resolve_cloud_resource(&client).await.unwrap();
 
         let cr = result.expect("expected CloudResource");
         assert_eq!(
             cr.resource_id,
-            "arn:aws:ebs:us-east-1:123456789012:volume/vol-0123456789abcdef0"
+            "arn:aws:ebs:us-east-1:123456789012:volume/vol-0123456789cafe0"
         );
         assert_eq!(cr.provider, CloudProvider::Aws);
     }
 
     #[tokio::test]
     async fn bound_returns_azure_resource() {
-        let (client, mut handle) = mock_client();
+        let (client, handle) = mock_client();
         let pvc = mock_pvc(Some("test-pv"));
         let pv = mock_pv_azure_csi(
             "test-pv",
             "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg/providers/Microsoft.Compute/disks/test-disk",
         );
 
-        tokio::spawn(async move {
-            let (request, send) = handle.next_request().await.expect("expected a request");
-
-            // Given a bound claim, there must be a request to get the volume.
-            assert!(request.uri().path().contains("persistentvolumes"));
-
-            // Send a response back to the controller.
-            let body = serde_json::to_vec(&pv).unwrap();
-            let response = Response::builder()
-                .status(StatusCode::OK)
-                .body(Body::from(body))
-                .unwrap();
-            send.send_response(response);
-        });
+        respond_with_pv(handle, pv);
 
         let result = pvc.resolve_cloud_resource(&client).await.unwrap();
 
@@ -279,36 +273,38 @@ mod tests {
 
     #[tokio::test]
     async fn bound_returns_gcp_resource() {
-        let (client, mut handle) = mock_client();
+        let (client, handle) = mock_client();
         let pvc = mock_pvc(Some("test-pv"));
         let pv = mock_pv_gcp_csi(
             "test-pv",
-            "projects/test-project-123456/zones/us-central1-a/disks/pvc-a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "projects/test-project-123456/zones/us-central1-a/disks/pvc-a1b2c3d4-e5f6-7890-cafe-ef1234567890",
         );
 
-        tokio::spawn(async move {
-            let (request, send) = handle.next_request().await.expect("expected a request");
-
-            // Given a bound claim, there must be a request to get the volume.
-            assert!(request.uri().path().contains("persistentvolumes"));
-
-            // Send a response back to the controller.
-            let body = serde_json::to_vec(&pv).unwrap();
-            let response = Response::builder()
-                .status(StatusCode::OK)
-                .body(Body::from(body))
-                .unwrap();
-            send.send_response(response);
-        });
+        respond_with_pv(handle, pv);
 
         let result = pvc.resolve_cloud_resource(&client).await.unwrap();
 
         let cr = result.expect("expected CloudResource");
         assert_eq!(
             cr.resource_id,
-            "projects/test-project-123456/zones/us-central1-a/disks/pvc-a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            "projects/test-project-123456/zones/us-central1-a/disks/pvc-a1b2c3d4-e5f6-7890-cafe-ef1234567890"
         );
         assert_eq!(cr.provider, CloudProvider::Gcp);
+    }
+
+    #[tokio::test]
+    async fn bound_returns_other_for_local_path() {
+        let (client, handle) = mock_client();
+        let pvc = mock_pvc(Some("test-pv"));
+        let pv = mock_pv_local("test-pv", "/var/local-path-provisioner/pvc-abc123");
+
+        respond_with_pv(handle, pv);
+
+        let result = pvc.resolve_cloud_resource(&client).await.unwrap();
+
+        let cr = result.expect("expected CloudResource");
+        assert_eq!(cr.resource_id, "/var/local-path-provisioner/pvc-abc123");
+        assert_eq!(cr.provider, CloudProvider::Other);
     }
 
     #[tokio::test]

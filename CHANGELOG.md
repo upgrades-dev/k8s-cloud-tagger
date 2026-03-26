@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Optional Helm [Config Connector](https://docs.cloud.google.com/config-connector/docs/overview) resources for GKE
+- Determine cloud provider from pv csi driver name
 
 ## [0.2.1] - 2026-02-26
 

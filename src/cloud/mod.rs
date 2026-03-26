@@ -64,6 +64,11 @@ impl<C: CloudClient> MeteredClient<C> {
 pub async fn create_client(provider: &CloudProvider) -> Result<Box<dyn CloudClient>, Error> {
     match provider {
         CloudProvider::Mock => Ok(Box::new(MockClient::default())),
+        CloudProvider::Aws => Err(Error::Config("not implemented".into())),
+        CloudProvider::Azure => Err(Error::Config("not implemented".into())),
         CloudProvider::Gcp => Ok(Box::new(GcpClient::new().await?)),
+        CloudProvider::Other => Err(Error::Config(
+            "cloudProvider 'other' is not a valid configuration value".into(),
+        )),
     }
 }

@@ -3,6 +3,15 @@ use crate::traits::{CloudProvider, CloudResource, CloudTaggable};
 use k8s_openapi::api::core::v1::{PersistentVolume, PersistentVolumeClaim};
 use kube::{Api, Client};
 
+fn provider_from_csi_driver(driver: &str) -> CloudProvider {
+    match driver {
+        "ebs.csi.aws.com" => CloudProvider::Aws,
+        "disk.csi.azure.com" => CloudProvider::Azure,
+        "pd.csi.storage.gke.io" => CloudProvider::Gcp,
+        _ => CloudProvider::Other,
+    }
+}
+
 impl CloudTaggable for PersistentVolumeClaim {
     fn resolve_cloud_resource(
         &self,
@@ -21,7 +30,7 @@ impl CloudTaggable for PersistentVolumeClaim {
             let pvs: Api<PersistentVolume> = Api::all(client);
             let pv = pvs.get(&pv_name).await?;
 
-            let Some(resource_id) = extract_resource_id(&pv) else {
+            let Some((provider, resource_id)) = extract_resource_id(&pv) else {
                 tracing::debug!(pv = %pv_name, "No supported volume source found");
                 return Ok(None);
             };
@@ -29,7 +38,7 @@ impl CloudTaggable for PersistentVolumeClaim {
             tracing::debug!(%resource_id, "Found volume");
 
             Ok(Some(CloudResource {
-                provider: CloudProvider::Mock,
+                provider,
                 resource_id,
                 labels,
             }))
@@ -37,22 +46,23 @@ impl CloudTaggable for PersistentVolumeClaim {
     }
 }
 
-fn extract_resource_id(pv: &PersistentVolume) -> Option<String> {
+fn extract_resource_id(pv: &PersistentVolume) -> Option<(CloudProvider, String)> {
     let spec = pv.spec.as_ref()?;
 
     // CSI is the most common and modern.
     if let Some(csi) = &spec.csi {
-        return Some(csi.volume_handle.clone());
+        let provider = provider_from_csi_driver(&csi.driver);
+        return Some((provider, csi.volume_handle.clone()));
     }
 
     // Google Compute Engine Persistent Disk (found on older GKE clusters)
     if let Some(pd_name) = &spec.gce_persistent_disk {
-        return Some(pd_name.pd_name.clone());
+        return Some((CloudProvider::Gcp, pd_name.pd_name.clone()));
     }
 
     // hostPath - used by Kind/local-path-provisioner for test environments
     if let Some(host_path) = &spec.host_path {
-        return Some(host_path.path.clone());
+        return Some((CloudProvider::Other, host_path.path.clone()));
     }
 
     let pv_name = pv.metadata.name.as_deref().unwrap_or("<unknown>");
@@ -63,7 +73,7 @@ fn extract_resource_id(pv: &PersistentVolume) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::traits::CloudTaggable;
+    use crate::traits::{CloudProvider, CloudTaggable};
     use http::{Request, Response, StatusCode};
     use k8s_openapi::api::core::v1::{
         CSIPersistentVolumeSource, PersistentVolume, PersistentVolumeClaim,
@@ -127,6 +137,42 @@ mod tests {
         }
     }
 
+    fn mock_pv_azure_csi(name: &str, volume_id: &str) -> PersistentVolume {
+        PersistentVolume {
+            metadata: ObjectMeta {
+                name: Some(name.into()),
+                ..Default::default()
+            },
+            spec: Some(PersistentVolumeSpec {
+                csi: Some(CSIPersistentVolumeSource {
+                    driver: "disk.csi.azure.com".into(),
+                    volume_handle: volume_id.into(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
+    fn mock_pv_gcp_csi(name: &str, pd_name: &str) -> PersistentVolume {
+        PersistentVolume {
+            metadata: ObjectMeta {
+                name: Some(name.into()),
+                ..Default::default()
+            },
+            spec: Some(PersistentVolumeSpec {
+                csi: Some(CSIPersistentVolumeSource {
+                    driver: "pd.csi.storage.gke.io".into(),
+                    volume_handle: pd_name.into(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
     #[tokio::test]
     async fn not_bound_returns_none() {
         let (client, _handle) = mock_client();
@@ -164,7 +210,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn bound_returns_resource() {
+    async fn bound_returns_aws_resource() {
         let (client, mut handle) = mock_client();
         let pvc = mock_pvc(Some("test-pv"));
         let pv = mock_pv_aws_csi(
@@ -194,6 +240,75 @@ mod tests {
             cr.resource_id,
             "arn:aws:ebs:us-east-1:123456789012:volume/vol-0123456789abcdef0"
         );
+        assert_eq!(cr.provider, CloudProvider::Aws);
+    }
+
+    #[tokio::test]
+    async fn bound_returns_azure_resource() {
+        let (client, mut handle) = mock_client();
+        let pvc = mock_pvc(Some("test-pv"));
+        let pv = mock_pv_azure_csi(
+            "test-pv",
+            "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg/providers/Microsoft.Compute/disks/test-disk",
+        );
+
+        tokio::spawn(async move {
+            let (request, send) = handle.next_request().await.expect("expected a request");
+
+            // Given a bound claim, there must be a request to get the volume.
+            assert!(request.uri().path().contains("persistentvolumes"));
+
+            // Send a response back to the controller.
+            let body = serde_json::to_vec(&pv).unwrap();
+            let response = Response::builder()
+                .status(StatusCode::OK)
+                .body(Body::from(body))
+                .unwrap();
+            send.send_response(response);
+        });
+
+        let result = pvc.resolve_cloud_resource(&client).await.unwrap();
+
+        let cr = result.expect("expected CloudResource");
+        assert_eq!(
+            cr.resource_id,
+            "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-rg/providers/Microsoft.Compute/disks/test-disk"
+        );
+        assert_eq!(cr.provider, CloudProvider::Azure);
+    }
+
+    #[tokio::test]
+    async fn bound_returns_gcp_resource() {
+        let (client, mut handle) = mock_client();
+        let pvc = mock_pvc(Some("test-pv"));
+        let pv = mock_pv_gcp_csi(
+            "test-pv",
+            "projects/test-project-123456/zones/us-central1-a/disks/pvc-a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        );
+
+        tokio::spawn(async move {
+            let (request, send) = handle.next_request().await.expect("expected a request");
+
+            // Given a bound claim, there must be a request to get the volume.
+            assert!(request.uri().path().contains("persistentvolumes"));
+
+            // Send a response back to the controller.
+            let body = serde_json::to_vec(&pv).unwrap();
+            let response = Response::builder()
+                .status(StatusCode::OK)
+                .body(Body::from(body))
+                .unwrap();
+            send.send_response(response);
+        });
+
+        let result = pvc.resolve_cloud_resource(&client).await.unwrap();
+
+        let cr = result.expect("expected CloudResource");
+        assert_eq!(
+            cr.resource_id,
+            "projects/test-project-123456/zones/us-central1-a/disks/pvc-a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        );
+        assert_eq!(cr.provider, CloudProvider::Gcp);
     }
 
     #[tokio::test]

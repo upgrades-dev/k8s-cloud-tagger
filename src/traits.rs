@@ -19,18 +19,27 @@ pub struct CloudResource {
 }
 
 /// Supported cloud providers.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CloudProvider {
-    /// For testing. Always success in the Cloud Provider API.
+    /// For testing. Always succeeds without calling any real cloud API.
     Mock,
+    Aws,
+    Azure,
     Gcp,
+    /// Real volume source but not a recognised cloud provider (e.g. hostPath,
+    /// local-path-provisioner, or an unknown CSI driver). The resource ID is
+    /// resolved, but no cloud API calls will be made.
+    Other,
 }
 
 impl std::fmt::Display for CloudProvider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CloudProvider::Mock => write!(f, "Mock"),
+            CloudProvider::Aws => write!(f, "AWS"),
+            CloudProvider::Azure => write!(f, "Azure"),
             CloudProvider::Gcp => write!(f, "GCP"),
+            CloudProvider::Other => write!(f, "Other"),
         }
     }
 }
@@ -40,6 +49,8 @@ impl FromStr for CloudProvider {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
             "MOCK" => Ok(CloudProvider::Mock),
+            "AWS" => Ok(CloudProvider::Aws),
+            "AZURE" => Ok(CloudProvider::Azure),
             "GCP" => Ok(CloudProvider::Gcp),
             _ => Err(format!("invalid cloud provider: {}", s)),
         }

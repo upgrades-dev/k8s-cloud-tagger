@@ -32,14 +32,12 @@ pub fn client_config() -> ClientConfig {
 }
 
 /// Build a `reqwest::Client` using our TLS configuration.
-#[allow(dead_code)] // TODO(afharvey) issue 14 will use this
 pub fn http_client() -> reqwest::Result<reqwest::Client> {
     reqwest::Client::builder()
         .use_preconfigured_tls(client_config())
         .build()
 }
 
-#[allow(dead_code)] // TODO(afharvey) issue 14 will use this
 fn root_cert_store() -> RootCertStore {
     let mut roots = RootCertStore::empty();
 

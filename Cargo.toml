@@ -23,6 +23,7 @@ serde_json = "1.0.149"
 reqwest = { version = "0.13", default-features = false, features = [
     "json",
     "query",
+    "form",
     "rustls-no-provider",
     "http2",
 ] }

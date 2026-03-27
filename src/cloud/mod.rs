@@ -1,8 +1,10 @@
+mod azure;
 mod gcp;
 mod mock;
 
 pub use mock::MockClient;
 
+use crate::cloud::azure::AzureClient;
 use crate::cloud::gcp::GcpClient;
 use crate::error::Error;
 use crate::metrics::API_CALL_DURATION;
@@ -65,7 +67,7 @@ pub async fn create_client(provider: &CloudProvider) -> Result<Box<dyn CloudClie
     match provider {
         CloudProvider::Mock => Ok(Box::new(MockClient::default())),
         CloudProvider::Aws => Err(Error::Config("not implemented".into())),
-        CloudProvider::Azure => Err(Error::Config("not implemented".into())),
+        CloudProvider::Azure => Ok(Box::new(AzureClient::new()?)),
         CloudProvider::Gcp => Ok(Box::new(GcpClient::new().await?)),
         CloudProvider::Other => Err(Error::Config(
             "cloudProvider 'other' is not a valid configuration value".into(),

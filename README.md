@@ -79,6 +79,8 @@ helm template k8s-cloud-tagger helm/k8s-cloud-tagger/ --set serviceMonitor.enabl
 
 ## Label sanitisation
 
+### GCP
+
 Kubernetes label keys and values can contain characters that are not valid in GCP labels.
 GCP labels only allow lowercase letters, digits, hyphens, and underscores (`[a-z0-9_-]`),
 with keys limited to 63 characters and required to start with a lowercase letter.
@@ -95,6 +97,22 @@ For more detail on GCP label requirements, see the [Google Cloud labeling best p
 | `env: production` | `env: production` |
 | `upgrades.dev/managed-by: k8s-cloud-tagger` | `upgrades-dev-managed-by: k8s-cloud-tagger` |
 | `Team: Platform` | `team: platform` |
+
+### Azure
+
+Azure resource tag keys may contain any Unicode character except `<`, `>`, `%`, `&`, `\`, `?`, and `/`.
+Keys are limited to 512 characters and values to 256 characters.
+k8s-cloud-tagger replaces each disallowed character in a key with a hyphen, and truncates keys and values to their respective limits.
+Unlike GCP, Azure tags are not lowercased — tag names are case-insensitive in Azure but case is preserved as supplied, and tag values are case-sensitive.
+For more detail on Azure tag requirements, see the [Azure tag limitations](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/tag-resources).
+
+| Kubernetes label | Azure tag |
+| --- | --- |
+| `app.kubernetes.io/name: frontend` | `app.kubernetes.io-name: frontend` |
+| `helm.sh/chart: myapp-1.2.0` | `helm.sh-chart: myapp-1.2.0` |
+| `env: production` | `env: production` |
+| `upgrades.dev/managed-by: k8s-cloud-tagger` | `upgrades.dev-managed-by: k8s-cloud-tagger` |
+| `Team: Platform` | `Team: Platform` |
 
 ## Release
 

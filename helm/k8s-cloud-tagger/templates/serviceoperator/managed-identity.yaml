@@ -1,0 +1,20 @@
+{{- if and (eq .Values.cloudProvider "azure") (.Values.azure.serviceOperator.enabled) }}
+apiVersion: managedidentity.azure.com/v1api20230131
+kind: UserAssignedIdentity
+metadata:
+  name: {{ include "k8s-cloud-tagger.fullname" . }}
+  annotations:
+    serviceoperator.azure.com/reconcile-policy: detach-on-delete
+spec:
+  location: {{ required "azure.serviceOperator.location is required" .Values.azure.serviceOperator.location }}
+  owner:
+    name: {{ required "azure.serviceOperator.resourceGroup is required" .Values.azure.serviceOperator.resourceGroup }}
+  operatorSpec:
+    configMaps:
+      principalId:
+        name: {{ .Values.azure.identityName }}
+        key: principalId
+      clientId:
+        name: {{ .Values.azure.identityName }}
+        key: clientId
+{{- end }}

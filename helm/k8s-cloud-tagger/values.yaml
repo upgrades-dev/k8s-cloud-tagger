@@ -41,8 +41,7 @@ serviceAccount:
     #   eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/k8s-cloud-tagger
     # GCP GKE (Workload Identity):
     #   iam.gke.io/gcp-service-account: <mailto:tagger@project.iam.gserviceaccount.com>
-    # Azure AKS (Workload Identity):
-  #   azure.workload.identity/client-id: <client-id>
+    # Azure AKS (Workload Identity): use azure.clientId value instead
   # -- Labels to add to the ServiceAccount
   labels: {}
   # -- Disable automatic API token mounting at the SA level
@@ -83,6 +82,24 @@ serviceMonitor:
   labels: {}
   service:
     annotations: {}
+
+# -- Azure
+azure:
+  # Client ID of the user-assigned managed identity used for AKS Workload Identity.
+  # Required when cloudProvider=azure so the webhook can inject AZURE_CLIENT_ID into the pod.
+  # Obtain with: az identity show --resource-group <rg> --name k8s-cloud-tagger --query clientId -o tsv
+  clientId: ""
+  # Name of the Azure user-assigned managed identity resource (and the ConfigMap ASO writes its IDs into).
+  # Change this if the name conflicts with an existing identity in your resource group.
+  identityName: "k8s-cloud-tagger-identity"
+  serviceOperator:
+    enabled: false
+    resourceGroup: ""
+    location: ""
+    subscriptionId: ""
+    # OIDC issuer URL of the AKS cluster
+    # (az aks show --query oidcIssuerProfile.issuerUrl)
+    oidcIssuerUrl: ""
 
 # -- Google Cloud
 gcp:

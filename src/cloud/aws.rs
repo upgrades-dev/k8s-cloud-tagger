@@ -312,6 +312,33 @@ impl AwsClient {
     }
 }
 
+use crate::cloud::CloudClient;
+use async_trait::async_trait;
+
+#[async_trait]
+impl CloudClient for AwsClient {
+    fn provider_name(&self) -> &'static str {
+        "aws"
+    }
+
+    async fn set_tags(&self, resource_id: &str, labels: &Labels) -> Result<(), Error> {
+        let disk = AwsDisk::parse(resource_id)
+            .ok_or_else(|| Error::CloudApi(format!("Invalid AWS resource ID: {resource_id}")))?;
+
+        let sanitised = sanitise_tags(labels);
+
+        self.create_tags(&disk, &sanitised).await?;
+
+        tracing::debug!(
+            disk = %resource_id,
+            tags = ?sanitised,
+            "AWS: tags created"
+        );
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

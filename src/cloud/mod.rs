@@ -5,6 +5,7 @@ mod aws;
 
 pub use mock::MockClient;
 
+use crate::cloud::aws::AwsClient;
 use crate::cloud::azure::AzureClient;
 use crate::cloud::gcp::GcpClient;
 use crate::error::Error;
@@ -67,7 +68,7 @@ impl<C: CloudClient> MeteredClient<C> {
 pub async fn create_client(provider: &CloudProvider) -> Result<Box<dyn CloudClient>, Error> {
     match provider {
         CloudProvider::Mock => Ok(Box::new(MockClient::default())),
-        CloudProvider::Aws => Err(Error::Config("not implemented".into())),
+        CloudProvider::Aws => Ok(Box::new(AwsClient::new()?)),
         CloudProvider::Azure => Ok(Box::new(AzureClient::new()?)),
         CloudProvider::Gcp => Ok(Box::new(GcpClient::new().await?)),
         CloudProvider::Other => Err(Error::Config(

@@ -1,0 +1,50 @@
+{{- if and (eq .Values.cloudProvider "aws") (.Values.aws.controllersKubernetes.enabled) }}
+apiVersion: iam.services.k8s.aws/v1alpha1
+kind: Role
+metadata:
+  name: {{ include "k8s-cloud-tagger.fullname" . }}-role
+spec:
+  name: {{ .Values.aws.controllersKubernetes.roleName }}
+  description: "IRSA role for k8s-cloud-tagger EBS volume tagging"
+  assumeRolePolicyDocument: |
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Federated": "arn:aws:iam::{{ .Values.aws.controllersKubernetes.accountId }}:oidc-provider/{{ trimPrefix "https://" .Values.aws.controllersKubernetes.oidcIssuerUrl }}"
+          },
+          "Action": "sts:AssumeRoleWithWebIdentity",
+          "Condition": {
+            "StringEquals": {
+              "{{ trimPrefix "https://" .Values.aws.controllersKubernetes.oidcIssuerUrl }}:sub": "system:serviceaccount:{{ .Release.Namespace }}:{{ include "k8s-cloud-tagger.fullname" . }}",
+              "{{ trimPrefix "https://" .Values.aws.controllersKubernetes.oidcIssuerUrl }}:aud": "sts.amazonaws.com"
+            }
+          }
+        }
+      ]
+    }
+  inlinePolicies:
+    - name: ebs-tagging-policy
+      document: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "ec2:DescribeVolumes",
+                "ec2:CreateTags"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+  maxSessionDuration: 3600
+  tags:
+    - key: managed-by
+      value: ack
+    - key: app
+      value: {{ include "k8s-cloud-tagger.name" . }}
+{{- end }}

@@ -1,3 +1,12 @@
+use crate::cloud::CloudClient;
+use crate::error::Error;
+use crate::tls::http_client;
+use async_trait::async_trait;
+use reqwest::Client;
+use serde::Deserialize;
+use std::collections::BTreeMap;
+use std::time::SystemTime;
+
 /// A parsed AWS EBS volume ARN.
 ///
 /// The CSI volume handle for `ebs.csi.aws.com` is the full ARN:
@@ -44,8 +53,6 @@ impl AwsDisk {
         format!("https://ec2.{}.amazonaws.com/", self.region)
     }
 }
-
-use std::collections::BTreeMap;
 
 pub type Labels = BTreeMap<String, String>;
 
@@ -99,12 +106,6 @@ fn sanitise_tags(labels: &Labels) -> BTreeMap<String, String> {
     }
     result
 }
-
-use crate::error::Error;
-use crate::tls::http_client;
-use reqwest::Client;
-use serde::Deserialize;
-use std::time::SystemTime;
 
 /// AWS temporary credentials from STS.
 #[derive(Debug)]
@@ -312,9 +313,6 @@ impl AwsClient {
         Ok(())
     }
 }
-
-use crate::cloud::CloudClient;
-use async_trait::async_trait;
 
 #[async_trait]
 impl CloudClient for AwsClient {

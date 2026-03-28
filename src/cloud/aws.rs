@@ -4,7 +4,6 @@
 ///   `arn:aws:ebs:us-east-1:123456789012:volume/vol-0123456789cafe0`
 pub struct AwsDisk {
     pub region: String,
-    pub account_id: String,
     pub volume_id: String,
 }
 
@@ -36,7 +35,6 @@ impl AwsDisk {
 
         Some(Self {
             region: parts[3].to_string(),
-            account_id: parts[4].to_string(),
             volume_id: volume_id.to_string(),
         })
     }
@@ -351,7 +349,6 @@ mod tests {
         let disk = AwsDisk::parse("arn:aws:ebs:us-east-1:123456789012:volume/vol-0123456789cafe0")
             .unwrap();
         assert_eq!(disk.region, "us-east-1");
-        assert_eq!(disk.account_id, "123456789012");
         assert_eq!(disk.volume_id, "vol-0123456789cafe0");
         assert_eq!(disk.endpoint(), "https://ec2.us-east-1.amazonaws.com/");
     }

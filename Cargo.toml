@@ -34,7 +34,12 @@ rustls = { version = "0.23", default-features = false, features = [
     "tls12",
 ] }
 webpki-roots = "1.0.6"
+aws-credential-types = "1.2"
+aws-sigv4 = "1.2"
+aws-smithy-runtime-api = "1.2"
+quick-xml = { version = "0.37", features = ["serialize"] }
 rustls-native-certs = "0.8.3"
+serde_urlencoded = "0.7"
 tempfile = "3"
 
 [dev-dependencies]

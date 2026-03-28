@@ -160,7 +160,7 @@ fn sign_request(
     creds: &AwsCredentials,
 ) -> Result<Vec<(String, String)>, Error> {
     use aws_credential_types::Credentials;
-    use aws_sigv4::http_request::{sign, SignableBody, SignableRequest, SigningSettings};
+    use aws_sigv4::http_request::{SignableBody, SignableRequest, SigningSettings, sign};
     use aws_sigv4::sign::v4;
     use aws_smithy_runtime_api::client::identity::Identity;
 
@@ -214,12 +214,12 @@ pub struct AwsClient {
 
 impl AwsClient {
     pub fn new() -> Result<Self, Error> {
-        let role_arn = std::env::var("AWS_ROLE_ARN")
-            .map_err(|_| Error::Aws("AWS_ROLE_ARN not set".into()))?;
+        let role_arn =
+            std::env::var("AWS_ROLE_ARN").map_err(|_| Error::Aws("AWS_ROLE_ARN not set".into()))?;
         let token_file = std::env::var("AWS_WEB_IDENTITY_TOKEN_FILE")
             .map_err(|_| Error::Aws("AWS_WEB_IDENTITY_TOKEN_FILE not set".into()))?;
-        let region = std::env::var("AWS_REGION")
-            .map_err(|_| Error::Aws("AWS_REGION not set".into()))?;
+        let region =
+            std::env::var("AWS_REGION").map_err(|_| Error::Aws("AWS_REGION not set".into()))?;
 
         Ok(Self {
             http: http_client()?,
@@ -299,7 +299,10 @@ impl AwsClient {
 
         if !status.is_success() {
             let text = resp.text().await?;
-            return Err(Error::Aws(format!("EC2 CreateTags error ({}): {}", status, text)));
+            return Err(Error::Aws(format!(
+                "EC2 CreateTags error ({}): {}",
+                status, text
+            )));
         }
 
         tracing::debug!(
@@ -469,7 +472,10 @@ mod tests {
 
         let creds = parse_credentials(xml).unwrap();
         assert_eq!(creds.access_key_id, "ASIA1234567890");
-        assert_eq!(creds.secret_access_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCY1234567890");
+        assert_eq!(
+            creds.secret_access_key,
+            "wJalrXUtnFEMI/K7MDENG/bPxRfiCY1234567890"
+        );
         assert_eq!(creds.session_token, "FwoGZXIvYXdzEBYaDK1234567890");
     }
 

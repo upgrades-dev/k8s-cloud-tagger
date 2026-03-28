@@ -1,7 +1,7 @@
+mod aws;
 mod azure;
 mod gcp;
 mod mock;
-mod aws;
 
 pub use mock::MockClient;
 

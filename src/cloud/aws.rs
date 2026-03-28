@@ -47,6 +47,61 @@ impl AwsDisk {
     }
 }
 
+use std::collections::BTreeMap;
+
+pub type Labels = BTreeMap<String, String>;
+
+/// Sanitise a string for use as an AWS resource tag key.
+///
+/// AWS tag constraints:
+/// - Keys: max 128 chars; must not contain `<`, `>`, `%`, `&`, `\`, `?`, `/`
+/// - Reserved: `aws:` prefix is reserved by AWS and will be rejected
+fn sanitise_aws_tag_key(input: &str) -> Option<String> {
+    let sanitized: String = input
+        .chars()
+        .map(|c| match c {
+            '<' | '>' | '%' | '&' | '\\' | '?' | '/' => '-',
+            _ => c,
+        })
+        .take(128)
+        .collect();
+
+    if sanitized.starts_with("aws:") {
+        tracing::debug!(key = %input, "Skipping AWS tag: reserved prefix");
+        None
+    } else {
+        Some(sanitized)
+    }
+}
+
+fn sanitise_aws_tag_value(input: &str) -> String {
+    input
+        .chars()
+        .map(|c| match c {
+            '<' | '>' | '%' | '&' | '\\' | '?' | '/' => '-',
+            _ => c,
+        })
+        .take(256)
+        .collect()
+}
+
+fn sanitise_tags(labels: &Labels) -> BTreeMap<String, String> {
+    let mut result = BTreeMap::new();
+    for (k, v) in labels {
+        match sanitise_aws_tag_key(k) {
+            Some(aws_key) => {
+                let aws_val = sanitise_aws_tag_value(v);
+                tracing::debug!(k8s_key = %k, aws_key = %aws_key, "Sanitised AWS tag key");
+                result.insert(aws_key, aws_val);
+            }
+            None => {
+                tracing::debug!(key = %k, "Skipping AWS tag: reserved prefix");
+            }
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -99,5 +154,67 @@ mod tests {
     #[test]
     fn parse_invalid_empty() {
         assert!(AwsDisk::parse("").is_none());
+    }
+
+    #[test]
+    fn sanitise_key_replaces_disallowed() {
+        assert_eq!(
+            sanitise_aws_tag_key("app.kubernetes.io/name"),
+            Some("app.kubernetes.io-name".to_string())
+        );
+        assert_eq!(
+            sanitise_aws_tag_key("key<with>bad%chars"),
+            Some("key-with-bad-chars".to_string())
+        );
+        assert_eq!(
+            sanitise_aws_tag_key("env/production"),
+            Some("env-production".to_string())
+        );
+    }
+
+    #[test]
+    fn sanitise_key_truncates() {
+        let long = "a".repeat(200);
+        assert_eq!(sanitise_aws_tag_key(&long).unwrap().len(), 128);
+    }
+
+    #[test]
+    fn sanitise_key_skips_aws_prefix() {
+        assert!(sanitise_aws_tag_key("aws:something").is_none());
+        assert!(sanitise_aws_tag_key("aws:created-by").is_none());
+        assert_eq!(
+            sanitise_aws_tag_key("my-aws-tag"),
+            Some("my-aws-tag".to_string())
+        );
+        assert_eq!(
+            sanitise_aws_tag_key("created-by-aws"),
+            Some("created-by-aws".to_string())
+        );
+    }
+
+    #[test]
+    fn sanitise_value_truncates() {
+        let long = "v".repeat(300);
+        assert_eq!(sanitise_aws_tag_value(&long).len(), 256);
+    }
+
+    #[test]
+    fn sanitise_value_preserves_case() {
+        assert_eq!(sanitise_aws_tag_value("Production"), "Production");
+        assert_eq!(sanitise_aws_tag_value("Team"), "Team");
+    }
+
+    #[test]
+    fn sanitise_tags_full() {
+        let mut labels = BTreeMap::new();
+        labels.insert("app.kubernetes.io/name".to_string(), "frontend".to_string());
+        labels.insert("env".to_string(), "production".to_string());
+        labels.insert("aws:special".to_string(), "skip-me".to_string());
+
+        let result = sanitise_tags(&labels);
+        assert_eq!(result["app.kubernetes.io-name"], "frontend");
+        assert_eq!(result["env"], "production");
+        assert!(!result.contains_key("aws:special"));
+        assert_eq!(result.len(), 2);
     }
 }

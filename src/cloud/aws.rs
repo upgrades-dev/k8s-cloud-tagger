@@ -2,6 +2,10 @@ use crate::cloud::CloudClient;
 use crate::error::Error;
 use crate::tls::http_client;
 use async_trait::async_trait;
+use aws_credential_types::Credentials;
+use aws_sigv4::http_request::{SignableBody, SignableRequest, SigningSettings, sign};
+use aws_sigv4::sign::v4;
+use aws_smithy_runtime_api::client::identity::Identity;
 use reqwest::Client;
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -158,11 +162,6 @@ fn sign_request(
     region: &str,
     creds: &AwsCredentials,
 ) -> Result<Vec<(String, String)>, Error> {
-    use aws_credential_types::Credentials;
-    use aws_sigv4::http_request::{SignableBody, SignableRequest, SigningSettings, sign};
-    use aws_sigv4::sign::v4;
-    use aws_smithy_runtime_api::client::identity::Identity;
-
     let credentials = Credentials::new(
         &creds.access_key_id,
         &creds.secret_access_key,

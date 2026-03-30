@@ -116,7 +116,7 @@ fn sanitise_tags(labels: &Labels) -> BTreeMap<String, String> {
 pub struct AwsCredentials {
     pub access_key_id: String,
     pub secret_access_key: String,
-    pub session_token: String,
+    pub session_token: Option<String>,
 }
 
 /// XML response structure for STS AssumeRoleWithWebIdentity.
@@ -150,7 +150,7 @@ fn parse_credentials(xml: &str) -> Result<AwsCredentials, Error> {
     Ok(AwsCredentials {
         access_key_id: response.result.credentials.access_key_id,
         secret_access_key: response.result.credentials.secret_access_key,
-        session_token: response.result.credentials.session_token,
+        session_token: Some(response.result.credentials.session_token),
     })
 }
 
@@ -165,7 +165,7 @@ fn sign_request(
     let credentials = Credentials::new(
         &creds.access_key_id,
         &creds.secret_access_key,
-        Some(creds.session_token.clone()),
+        creds.session_token.clone(),
         None,
         "k8s-cloud-tagger",
     );
@@ -194,6 +194,8 @@ fn sign_request(
     let (instructions, _signature) = sign(signable, &params)
         .map_err(|e| Error::Aws(format!("Failed to sign request: {e}")))?
         .into_parts();
+    // _signature is the raw signature string, but instructions.headers() already
+    // contains the complete Authorization header we need, so we discard it.
 
     let headers: Vec<(String, String)> = instructions
         .headers()
@@ -470,7 +472,10 @@ mod tests {
             creds.secret_access_key,
             "wJalrXUtnFEMI/K7MDENG/bPxRfiCY1234567890"
         );
-        assert_eq!(creds.session_token, "FwoGZXIvYXdzEBYaDK1234567890");
+        assert_eq!(
+            creds.session_token,
+            Some("FwoGZXIvYXdzEBYaDK1234567890".to_string())
+        );
     }
 
     #[test]
@@ -497,7 +502,7 @@ mod tests {
         let creds = AwsCredentials {
             access_key_id: "ASIA123".to_string(),
             secret_access_key: "secret123".to_string(),
-            session_token: "token123".to_string(),
+            session_token: Some("token123".to_string()),
         };
 
         let headers = sign_request(

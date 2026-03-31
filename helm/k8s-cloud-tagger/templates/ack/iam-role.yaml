@@ -26,21 +26,20 @@ spec:
       ]
     }
   inlinePolicies:
-    - name: ebs-tagging-policy
-      document: |
-        {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Effect": "Allow",
-              "Action": [
-                "ec2:DescribeVolumes",
-                "ec2:CreateTags"
-              ],
-              "Resource": "*"
-            }
-          ]
-        }
+    ebs-tagging-policy: |
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "ec2:DescribeVolumes",
+              "ec2:CreateTags"
+            ],
+            "Resource": "*"
+          }
+        ]
+      }
   maxSessionDuration: 3600
   tags:
     - key: managed-by

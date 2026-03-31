@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - AWS EBS tagging and a testing guide for EKS
 - Optional Helm [ACK](https://aws-controllers-k8s.github.io/community/docs/community/overview/) resources for EKS
+- New nix shell with AWS tools "nix develop .#aws"
 
 ## [0.3.0] - 2026-03-27
 

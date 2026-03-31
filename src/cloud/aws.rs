@@ -198,6 +198,7 @@ pub struct AwsClient {
     token_file: String,
     region: String,
     account_id: String,
+    role_session_name: String,
 }
 
 impl AwsClient {
@@ -216,12 +217,17 @@ impl AwsClient {
             .ok_or_else(|| Error::Aws(format!("Invalid AWS_ROLE_ARN format: {}", role_arn)))?
             .to_string();
 
+        // Use pod name (HOSTNAME) as session name for CloudTrail visibility
+        let role_session_name =
+            std::env::var("HOSTNAME").unwrap_or_else(|_| "k8s-cloud-tagger".to_string());
+
         Ok(Self {
             http: http_client()?,
             role_arn,
             token_file,
             region,
             account_id,
+            role_session_name,
         })
     }
 
@@ -239,6 +245,7 @@ impl AwsClient {
                 ("Action", "AssumeRoleWithWebIdentity"),
                 ("Version", "2011-06-15"),
                 ("RoleArn", &self.role_arn),
+                ("RoleSessionName", &self.role_session_name),
                 ("WebIdentityToken", token.trim()),
             ])
             .send()

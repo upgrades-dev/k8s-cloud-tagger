@@ -110,7 +110,7 @@ eksctl create iamserviceaccount \
   --override-existing-serviceaccounts
 
 # Restart ACK controller to pick up the IAM role
-kubectl rollout restart deployment -n $ACK_SYSTEM_NAMESPACE ack-iam-controller
+kubectl rollout restart deployment -n $ACK_SYSTEM_NAMESPACE ack-iam-controller-iam-chart
 ```
 
 > **Note:** `IAMFullAccess` is used for simplicity in testing. Production deployments should use least-privilege policies.

@@ -19,6 +19,7 @@ use std::time::SystemTime;
 pub struct AwsDisk {
     pub region: String,
     pub volume_id: String,
+    #[allow(dead_code)]
     pub arn: String,
 }
 
@@ -272,7 +273,7 @@ impl AwsClient {
         let mut params: Vec<(String, String)> = vec![
             ("Action".to_string(), "CreateTags".to_string()),
             ("Version".to_string(), "2016-11-15".to_string()),
-            ("ResourceId.1".to_string(), disk.arn.clone()),
+            ("ResourceId.1".to_string(), disk.volume_id.clone()),
         ];
 
         for (i, (key, value)) in tags.iter().enumerate() {

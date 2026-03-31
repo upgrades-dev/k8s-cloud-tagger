@@ -135,7 +135,7 @@ helm install k8s-cloud-tagger helm/k8s-cloud-tagger \
   --create-namespace \
   --set cloudProvider=aws \
   --set aws.controllersKubernetes.enabled=true \
-  --set aws.controllersKubernetes.accountId="$ACCOUNT_ID" \
+  --set aws.controllersKubernetes.accountId="\"$ACCOUNT_ID\"" \
   --set aws.controllersKubernetes.oidcIssuerUrl="$OIDC_ISSUER_URL" \
   --set image.repository=quay.io/upgrades/k8s-cloud-tagger-dev \
   --set image.tag="$TAG" \
@@ -303,7 +303,7 @@ helm install k8s-cloud-tagger helm/k8s-cloud-tagger \
   --namespace k8s-cloud-tagger \
   --set cloudProvider=aws \
   --set aws.controllersKubernetes.enabled=true \
-  --set aws.controllersKubernetes.accountId="$ACCOUNT_ID" \
+  --set aws.controllersKubernetes.accountId="\"$ACCOUNT_ID\"" \
   --set aws.controllersKubernetes.oidcIssuerUrl="$OIDC_ISSUER_URL" \
   --set deployment.env.RUST_LOG="debug" \
   --set deployment.env.RUST_BACKTRACE=1

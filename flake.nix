@@ -140,6 +140,21 @@
           ENTRYPOINT ["/k8s-cloud-tagger"]
         '';
 
+        # ----------------------------------------------------------------------
+        # Common Dev Packages
+        # ----------------------------------------------------------------------
+        
+        # Shared by all dev shells
+        commonDevPackages = with pkgs; [
+          nix
+          kind
+          kubectl
+          jq
+          kubernetes-helm      # Helm CLI
+          nix-prefetch-docker  # Provides nix-prefetch-docker
+          skopeo # Push images without Docker daemon
+        ];
+
       in
       {
         # ======================================================================
@@ -242,24 +257,17 @@
         };
 
         # ======================================================================
-        # DEV SHELL
-        # Enter with: nix develop
-        # Provides all the tools for running CI tasks locally.
+        # DEV SHELLS
         # ======================================================================
+        
+        # Default dev shell for local development
+        # Enter with: nix develop
         devShells.default = craneLib.devShell {
           # Include all check inputs (gives you the same tools CI uses)
           checks = self.checks.${system};
 
           # Additional packages for development
-          packages = with pkgs; [
-            nix
-            kind
-            kubectl
-            jq
-            kubernetes-helm      # Helm CLI
-            nix-prefetch-docker  # Provides nix-prefetch-docker
-            skopeo # Push images without Docker daemon
-          ];
+          packages = commonDevPackages;
 
           # Message of the day
           shellHook = ''
@@ -272,6 +280,35 @@
 
           EOF
             echo "entering k8s-cloud-tagger dev shell..."
+          '';
+
+        };
+
+        # AWS dev shell for EKS testing
+        # Enter with: nix develop .#aws
+        devShells.aws = craneLib.devShell {
+          # Include all check inputs (same as default)
+          checks = self.checks.${system};
+
+          # Common packages + AWS-specific tools
+          packages = commonDevPackages ++ (with pkgs; [
+            awscli2
+            eksctl
+          ]);
+
+          # Message of the day
+          shellHook = ''
+            cat << 'EOF'
+
+            __  _____  ________  ___   ___  ________
+           / / / / _ \/ ___/ _ \/ _ | / _ \/ __/ __/
+          / /_/ / ___/ (_ / , _/ __ |/ // / _/_\ \
+          \____/_/   \___/_/|_/_/ |_/____/___/___/
+                  (AWS MODE)
+
+          EOF
+            echo "entering k8s-cloud-tagger dev shell (AWS mode)..."
+            echo "AWS tools available: aws, eksctl"
           '';
 
         };

@@ -14,21 +14,17 @@ use std::time::SystemTime;
 /// An AWS EBS volume resource.
 ///
 /// The EBS CSI driver provides the volume ID (e.g., `vol-0123456789cafe0`) in the
-/// PersistentVolume's `csi.volumeHandle` field. We construct the full ARN from the
-/// volume ID, region, and account ID provided by the AwsClient.
+/// PersistentVolume's `csi.volumeHandle` field.
 pub struct AwsDisk {
     pub region: String,
     pub volume_id: String,
-    #[allow(dead_code)]
-    pub arn: String,
 }
 
 impl AwsDisk {
     /// Create an AwsDisk from a volume ID.
     ///
     /// The EBS CSI driver returns volume IDs like `vol-0123456789cafe0`.
-    /// We construct the full ARN: `arn:aws:ebs:{region}:{account}:volume/{volume-id}`
-    pub fn parse(volume_id: &str, region: &str, account_id: &str) -> Option<Self> {
+    pub fn parse(volume_id: &str, region: &str) -> Option<Self> {
         if volume_id.is_empty() {
             return None;
         }
@@ -36,7 +32,6 @@ impl AwsDisk {
         Some(Self {
             region: region.to_string(),
             volume_id: volume_id.to_string(),
-            arn: format!("arn:aws:ebs:{}:{}:volume/{}", region, account_id, volume_id),
         })
     }
 
@@ -198,7 +193,6 @@ pub struct AwsClient {
     role_arn: String,
     token_file: String,
     region: String,
-    account_id: String,
     role_session_name: String,
 }
 
@@ -211,13 +205,6 @@ impl AwsClient {
         let region =
             std::env::var("AWS_REGION").map_err(|_| Error::Aws("AWS_REGION not set".into()))?;
 
-        // Parse account ID from role ARN: arn:aws:iam::ACCOUNT_ID:role/name
-        let account_id = role_arn
-            .split(':')
-            .nth(4)
-            .ok_or_else(|| Error::Aws(format!("Invalid AWS_ROLE_ARN format: {}", role_arn)))?
-            .to_string();
-
         // Use pod name (HOSTNAME) as session name for CloudTrail visibility
         let role_session_name =
             std::env::var("HOSTNAME").unwrap_or_else(|_| "k8s-cloud-tagger".to_string());
@@ -227,7 +214,6 @@ impl AwsClient {
             role_arn,
             token_file,
             region,
-            account_id,
             role_session_name,
         })
     }
@@ -326,7 +312,7 @@ impl CloudClient for AwsClient {
     }
 
     async fn set_tags(&self, resource_id: &str, labels: &Labels) -> Result<(), Error> {
-        let disk = AwsDisk::parse(resource_id, &self.region, &self.account_id)
+        let disk = AwsDisk::parse(resource_id, &self.region)
             .ok_or_else(|| Error::CloudApi(format!("Invalid AWS volume ID: {resource_id}")))?;
 
         let sanitised = sanitise_tags(labels);
@@ -349,31 +335,23 @@ mod tests {
 
     #[test]
     fn parse_volume_id() {
-        let disk = AwsDisk::parse("vol-0123456789cafe0", "us-east-1", "123456789012").unwrap();
+        let disk = AwsDisk::parse("vol-0123456789cafe0", "us-east-1").unwrap();
         assert_eq!(disk.region, "us-east-1");
         assert_eq!(disk.volume_id, "vol-0123456789cafe0");
-        assert_eq!(
-            disk.arn,
-            "arn:aws:ebs:us-east-1:123456789012:volume/vol-0123456789cafe0"
-        );
         assert_eq!(disk.endpoint(), "https://ec2.us-east-1.amazonaws.com/");
     }
 
     #[test]
     fn parse_different_region() {
-        let disk = AwsDisk::parse("vol-abc123", "eu-west-2", "999999999999").unwrap();
+        let disk = AwsDisk::parse("vol-abc123", "eu-west-2").unwrap();
         assert_eq!(disk.region, "eu-west-2");
         assert_eq!(disk.volume_id, "vol-abc123");
-        assert_eq!(
-            disk.arn,
-            "arn:aws:ebs:eu-west-2:999999999999:volume/vol-abc123"
-        );
         assert_eq!(disk.endpoint(), "https://ec2.eu-west-2.amazonaws.com/");
     }
 
     #[test]
     fn parse_empty_volume_id() {
-        assert!(AwsDisk::parse("", "us-east-1", "123456789012").is_none());
+        assert!(AwsDisk::parse("", "us-east-1").is_none());
     }
 
     #[test]

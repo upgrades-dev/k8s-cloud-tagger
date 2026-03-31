@@ -58,6 +58,7 @@ Solve complicated problems in the Rust code. Try to keep Helm simple, deployment
 | `src/cloud/mod.rs` | `CloudClient` trait, `MeteredClient` decorator, `create_client()` factory |
 | `src/cloud/gcp.rs` | GCP Compute API: parses CSI handle, sanitises labels, GET+POST disk labels |
 | `src/cloud/aws.rs` | AWS EC2 API: parses CSI handle, sanitises tags, STS assume role + EC2 CreateTags |
+| `src/cloud/azure.rs` | Azure ARM API: parses CSI handle, sanitises tags, Azure AD auth + Tags API |
 | `src/cloud/mock.rs` | Mock cloud client used in tests and `cloudProvider: mock` mode |
 | `src/config.rs` | Loads runtime config from YAML (`/etc/k8s-cloud-tagger/config.yaml`) |
 | `src/metrics.rs` | Prometheus metric definitions |
@@ -112,7 +113,7 @@ pub struct CloudResource {
 
 ## Extending the project
 
-- **New cloud provider**: implement `CloudClient` following `src/cloud/gcp.rs` or `src/cloud/aws.rs` as the reference; add a variant to `CloudProvider` in `src/traits.rs`; wire it into `create_client()` in `src/cloud/mod.rs`.
+- **New cloud provider**: implement `CloudClient` following `src/cloud/gcp.rs`, `src/cloud/aws.rs`, or `src/cloud/azure.rs` as the reference; add a variant to `CloudProvider` in `src/traits.rs`; wire it into `create_client()` in `src/cloud/mod.rs`.
 - **New Kubernetes resource type**: implement `CloudTaggable` following `src/resources/pvc.rs` as the reference; add the controller to `src/main.rs`.
 
 ## Development setup
@@ -132,13 +133,15 @@ The dev shell is the recommended environment — it provides all required tools 
 
 The Helm chart lives at `helm/k8s-cloud-tagger/`. Key values:
 
-- `cloudProvider`: `mock` (default), `gcp`, or `aws`
+- `cloudProvider`: `mock` (default), `gcp`, `aws`, or `azure`
 - `requeue.success` / `requeue.notReady` / `requeue.error`: requeue intervals
 - `serviceMonitor.enabled`: enables Prometheus Operator `ServiceMonitor`
 - `gcp.configConnector.enabled`: optional Config Connector resources for GKE Workload Identity
 - `aws.controllersKubernetes.enabled`: optional ACK (AWS Controllers for Kubernetes) resources for EKS IRSA
+- `azure.clientId`: required for Azure Workload Identity
+- `azure.serviceOperator.enabled`: optional Azure Service Operator resources for AKS Workload Identity
 
-See `docs/google_cloud.md` for a full GCP/GKE deployment guide and `docs/aws.md` for AWS/EKS deployment.
+See `docs/google_cloud.md` for GCP/GKE, `docs/aws.md` for AWS/EKS, and `docs/azure.md` for Azure/AKS deployment guides.
 
 ## Release process
 

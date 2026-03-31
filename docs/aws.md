@@ -21,7 +21,248 @@ to fetch existing tags first. AWS tags are case-sensitive (unlike GCP labels).
 > **Note:** The IAM role is created at runtime by ACK. The pod may restart once or twice
 > while waiting for the role to be created (typically 10-30 seconds).
 
-## Prerequisites
+## End-to-End Testing (From Scratch)
+
+This guide walks through testing `k8s-cloud-tagger` in a real EKS cluster, starting from scratch. After testing, the cluster is deleted to avoid ongoing charges.
+
+**Prerequisites:**
+- `aws` CLI (v2), `eksctl`, `kubectl`, `helm` (v3.8+), and `jq` installed
+- AWS credentials configured (`aws configure`)
+- Estimated cost: ~$0.25-0.50 USD for a 2-hour test
+
+**Using Nix:**
+
+If you have Nix with flakes enabled, all required tools are available in the AWS dev shell:
+
+```bash
+nix develop .#aws
+```
+
+**Cost optimization:**
+- Using t3.small spot instances (70% cheaper than on-demand)
+- Single-node cluster (minimum viable configuration)
+- Total cost: ~$0.10/hour (EKS control plane) + ~$0.006/hour (spot instance)
+
+### 1. Set environment variables
+
+```bash
+export AWS_REGION=eu-west-2  # or your preferred region
+export CLUSTER_NAME=k8s-cloud-tagger-test
+export NAMESPACE=k8s-cloud-tagger
+export TAG=latest  # or specific SHA like sha-63d1b9b
+export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+echo "Account ID: $ACCOUNT_ID"
+echo "Region: $AWS_REGION"
+```
+
+### 2. Create an EKS cluster
+
+Create a minimal EKS cluster with spot instances for cost savings:
+
+```bash
+eksctl create cluster \
+  --name $CLUSTER_NAME \
+  --region $AWS_REGION \
+  --node-type t3.small \
+  --nodes 1 \
+  --nodes-min 1 \
+  --nodes-max 1 \
+  --spot \
+  --with-oidc
+```
+
+This takes 15-20 minutes. The `--with-oidc` flag automatically configures IRSA (IAM Roles for Service Accounts).
+
+### 3. Install ACK IAM Controller
+
+Install the ACK IAM controller using Helm:
+
+```bash
+export RELEASE_VERSION=$(curl -sL https://api.github.com/repos/aws-controllers-k8s/iam-controller/releases/latest | jq -r '.tag_name | ltrimstr("v")')
+export ACK_SYSTEM_NAMESPACE=ack-system
+
+# Log in to ECR Public
+aws ecr-public get-login-password --region us-east-1 | \
+  helm registry login --username AWS --password-stdin public.ecr.aws
+
+# Install ACK IAM controller
+helm install --create-namespace -n $ACK_SYSTEM_NAMESPACE \
+  ack-iam-controller \
+  oci://public.ecr.aws/aws-controllers-k8s/iam-chart \
+  --version=$RELEASE_VERSION \
+  --set=aws.region=$AWS_REGION
+```
+
+### 4. Configure ACK permissions
+
+Create an IAM role for the ACK controller itself (so it can manage IAM resources):
+
+```bash
+eksctl create iamserviceaccount \
+  --name ack-iam-controller \
+  --namespace $ACK_SYSTEM_NAMESPACE \
+  --cluster $CLUSTER_NAME \
+  --region $AWS_REGION \
+  --role-name ack-iam-controller-${CLUSTER_NAME} \
+  --attach-policy-arn arn:aws:iam::aws:policy/IAMFullAccess \
+  --approve \
+  --override-existing-serviceaccounts
+
+# Restart ACK controller to pick up the IAM role
+kubectl rollout restart deployment -n $ACK_SYSTEM_NAMESPACE ack-iam-controller
+```
+
+> **Note:** `IAMFullAccess` is used for simplicity in testing. Production deployments should use least-privilege policies.
+
+### 5. Get OIDC issuer URL
+
+```bash
+export OIDC_ISSUER_URL=$(aws eks describe-cluster \
+  --name $CLUSTER_NAME \
+  --region $AWS_REGION \
+  --query cluster.identity.oidc.issuer \
+  --output text)
+
+echo "OIDC Issuer: $OIDC_ISSUER_URL"
+```
+
+### 6. Install k8s-cloud-tagger
+
+```bash
+helm install k8s-cloud-tagger helm/k8s-cloud-tagger \
+  --namespace $NAMESPACE \
+  --create-namespace \
+  --set cloudProvider=aws \
+  --set aws.controllersKubernetes.enabled=true \
+  --set aws.controllersKubernetes.accountId="$ACCOUNT_ID" \
+  --set aws.controllersKubernetes.oidcIssuerUrl="$OIDC_ISSUER_URL" \
+  --set image.repository=quay.io/upgrades/k8s-cloud-tagger-dev \
+  --set image.tag="$TAG" \
+  --set deployment.env.RUST_LOG="debug" \
+  --set deployment.env.RUST_BACKTRACE=1 \
+  --wait \
+  --timeout 5m
+```
+
+The Helm chart will create an ACK `Role` resource. ACK will then create the actual IAM role in AWS.
+
+### 7. Wait for IAM role creation
+
+ACK typically takes 30-60 seconds to create the IAM role:
+
+```bash
+echo "Waiting for ACK to create IAM role (typically 30-60 seconds)..."
+sleep 60
+
+# Check ACK resources
+kubectl get role.iam.services.k8s.aws -n $NAMESPACE
+```
+
+You should see output like:
+```
+NAME                        AGE
+k8s-cloud-tagger-role       1m
+```
+
+### 8. Verify controller is running
+
+```bash
+kubectl get pods -n $NAMESPACE
+kubectl logs -n $NAMESPACE -l app.kubernetes.io/name=k8s-cloud-tagger --tail=50
+```
+
+The controller may have restarted once or twice while waiting for the IAM role. Once the role is ready, you should see log messages indicating the controller is running.
+
+### 9. Create test PVC
+
+Create a PVC with labels that should be propagated to the EBS volume:
+
+```bash
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-pvc
+  namespace: default
+  labels:
+    environment: test
+    team: platform
+    cost-center: engineering
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: gp2
+EOF
+
+# Wait for PVC to bind
+kubectl wait --for=jsonpath='{.status.phase}'=Bound \
+  pvc/test-pvc -n default --timeout=60s
+```
+
+### 10. Verify tags on EBS volume
+
+Get the volume ID and check its tags in AWS:
+
+```bash
+# Get volume ID from the bound PV
+PV_NAME=$(kubectl get pvc test-pvc -n default -o jsonpath='{.spec.volumeName}')
+VOLUME_ID=$(kubectl get pv $PV_NAME -o jsonpath='{.spec.csi.volumeHandle}' | awk -F/ '{print $NF}')
+
+echo "Volume ID: $VOLUME_ID"
+
+# Wait a moment for tagging to complete
+sleep 10
+
+# Check tags on the volume
+aws ec2 describe-volumes \
+  --region $AWS_REGION \
+  --volume-ids $VOLUME_ID \
+  --query 'Volumes[0].Tags' \
+  --output table
+```
+
+You should see tags including `environment=test`, `team=platform`, and `cost-center=engineering`.
+
+### 11. Check Kubernetes events
+
+Check for the `Tagged` event from k8s-cloud-tagger:
+
+```bash
+kubectl get events -n default \
+  --field-selector involvedObject.name=test-pvc,reason=Tagged
+```
+
+Look for a `Normal/Tagged` event that confirms the tagging operation succeeded.
+
+### 12. Cleanup
+
+**IMPORTANT:** Delete the cluster to avoid ongoing charges.
+
+```bash
+# Delete test PVC first (removes the EBS volume)
+kubectl delete pvc test-pvc -n default
+
+# Uninstall Helm releases
+helm uninstall k8s-cloud-tagger -n $NAMESPACE
+helm uninstall ack-iam-controller -n $ACK_SYSTEM_NAMESPACE
+
+# Delete the EKS cluster
+eksctl delete cluster --name $CLUSTER_NAME --region $AWS_REGION
+```
+
+Cluster deletion takes 10-15 minutes. Verify it completes:
+
+```bash
+eksctl get cluster --name $CLUSTER_NAME --region $AWS_REGION
+```
+
+You should see "No clusters found" when deletion is complete.
+
+## Production Deployment Prerequisites
 
 - EKS cluster with IRSA enabled (OIDC provider configured)
 - [ACK IAM controller](https://github.com/aws-controllers-k8s/iam-controller) installed in the cluster
@@ -143,7 +384,7 @@ Check ACK controller logs:
 kubectl logs -n ack-iam-controller -l app.kubernetes.io/name=iam-controller
 ```
 
-### IRSA not working
+### IRSA is not working
 
 Check if the pod has the required environment variables:
 
@@ -214,7 +455,7 @@ eksctl scale nodegroup \
   --nodes 1
 ```
 
-## Manual IAM Setup (without ACK)
+## Appendix: Manual IAM Setup (without ACK)
 
 If you prefer not to use ACK, you can create the IAM resources manually:
 

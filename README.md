@@ -114,6 +114,24 @@ For more detail on Azure tag requirements, see the [Azure tag limitations](https
 | `upgrades.dev/managed-by: k8s-cloud-tagger` | `upgrades.dev-managed-by: k8s-cloud-tagger` |
 | `Team: Platform` | `Team: Platform` |
 
+### AWS
+
+AWS resource tag keys may contain any UTF-8 character, with keys limited to 128 characters and values to 256 characters.
+The following characters are not allowed in tag keys or values: `aws:` (as a prefix), and the characters `<`, `>`, `%`, `\`, `&`, `?`, `/`.
+k8s-cloud-tagger replaces each disallowed character in a key with a hyphen, and truncates keys and values to their respective limits.
+Like Azure, AWS tags are not lowercased — case is preserved as supplied for both keys and values.
+For more detail on AWS tag requirements, see the [AWS tagging best practices](https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html).
+
+| Kubernetes label | AWS tag |
+| --- | --- |
+| `app.kubernetes.io/name: frontend` | `app.kubernetes.io-name: frontend` |
+| `helm.sh/chart: myapp-1.2.0` | `helm.sh-chart: myapp-1.2.0` |
+| `env: production` | `env: production` |
+| `upgrades.dev/managed-by: k8s-cloud-tagger` | `upgrades.dev-managed-by: k8s-cloud-tagger` |
+| `Team: Platform` | `Team: Platform` |
+
+> **Note:** AWS reserves the `aws:` key prefix for its own use. Any Kubernetes label key that begins with `aws:` after sanitisation will be rejected and not applied to the resource.
+
 ## Release
 
 1. Check out a new branch

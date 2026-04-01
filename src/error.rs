@@ -20,6 +20,9 @@ pub enum Error {
 
     #[error("Azure auth error: {0}")]
     Azure(String),
+
+    #[error("AWS error: {0}")]
+    Aws(String),
 }
 
 impl Error {
@@ -32,6 +35,7 @@ impl Error {
             Error::Config(_) => "config",
             Error::Gcp(_) => "gcp",
             Error::Azure(_) => "azure",
+            Error::Aws(_) => "aws",
             Error::Reqwest(_) => "http",
         }
     }

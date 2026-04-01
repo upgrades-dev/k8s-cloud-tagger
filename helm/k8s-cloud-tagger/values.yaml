@@ -110,3 +110,16 @@ gcp:
     enabled: false
     # Name of the role in the cloud provider: [a-zA-Z0-9_\.]{3,64}
     customRoleName: "k8s_cloud_tagger"
+
+# -- AWS
+aws:
+  controllersKubernetes:
+    # Enable ACK (AWS Controllers for Kubernetes) to manage IAM resources.
+    # Requires ACK IAM controller to be installed in the cluster.
+    enabled: false
+    # AWS Account ID (12 digits) - required when enabled
+    accountId: ""
+    # IAM role name used for ARN construction
+    roleName: "k8s-cloud-tagger"
+    # EKS OIDC issuer URL, e.g., https://oidc.eks.us-west-2.amazonaws.com/id/EXAMPLE
+    oidcIssuerUrl: ""

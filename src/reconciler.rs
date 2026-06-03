@@ -1,4 +1,4 @@
-use crate::cloud::{CloudClient, MeteredClient};
+use crate::cloud::CloudClient;
 use crate::config::Config;
 use crate::error::Error;
 use crate::metrics::{ERRORS, RECONCILE_ACTIVE, RECONCILE_COUNT, RECONCILE_DURATION, labels};
@@ -10,22 +10,21 @@ use std::sync::Arc;
 use std::time::Instant;
 
 /// Shared state for the reconciler, passed to every reconciliation call.
-pub struct Context<C: CloudClient> {
+pub struct Context {
     /// Kubernetes API client.
     pub client: Client,
     /// Controller configuration (requeue intervals, etc.).
     pub config: Config,
     /// Cloud provider API client with metrics instrumentation.
-    pub cloud: MeteredClient<C>,
+    pub cloud: Box<dyn CloudClient>,
     /// Event reporter identity (controller name and pod instance).
     pub reporter: Reporter,
 }
 
 /// Main reconcile entry point, called by the kube-rs controller runtime.
-pub async fn reconcile<T, C>(resource: Arc<T>, ctx: Arc<Context<C>>) -> Result<Action, Error>
+pub async fn reconcile<T>(resource: Arc<T>, ctx: Arc<Context>) -> Result<Action, Error>
 where
     T: CloudTaggable + ResourceExt,
-    C: CloudClient,
 {
     let start = Instant::now();
     let (kind, namespace, name) = resource_ref(resource.as_ref());
@@ -59,16 +58,15 @@ where
     result
 }
 
-async fn do_reconcile<T, C>(
+async fn do_reconcile<T>(
     resource: &T,
-    ctx: &Context<C>,
+    ctx: &Context,
     kind: &str,
     namespace: &str,
     name: &str,
 ) -> Result<Action, Error>
 where
     T: CloudTaggable + ResourceExt,
-    C: CloudClient,
 {
     // Skip resources that are being deleted.
     if resource.meta().deletion_timestamp.is_some() {
@@ -126,10 +124,9 @@ where
 }
 
 /// Called by the controller runtime when reconciliation returns an error.
-pub fn error_policy<T, C>(resource: Arc<T>, error: &Error, ctx: Arc<Context<C>>) -> Action
+pub fn error_policy<T>(resource: Arc<T>, error: &Error, ctx: Arc<Context>) -> Action
 where
     T: CloudTaggable + ResourceExt,
-    C: CloudClient,
 {
     let (kind, namespace, name) = resource_ref(resource.as_ref());
     tracing::error!(%kind, %namespace, %name, %error, "Reconciliation error");
@@ -273,11 +270,11 @@ mod tests {
         Client::new(mock_service, "default")
     }
 
-    fn test_ctx(cloud: MockCloud) -> Context<MockCloud> {
+    fn test_ctx(cloud: MockCloud) -> Context {
         Context {
             client: mock_client(),
             config: Default::default(),
-            cloud: MeteredClient::new(cloud),
+            cloud: Box::new(cloud),
             reporter: Reporter {
                 controller: "test".into(),
                 instance: None,

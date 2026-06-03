@@ -43,7 +43,10 @@ impl CloudClient for Box<dyn CloudClient> {
     }
 }
 
-/// Wrapper which adds metrics to any CloudClient
+/// Wrapper which adds metrics to any CloudClient.
+///
+/// Implements [`CloudClient`] so it can be used transparently anywhere
+/// a cloud client is expected, enabling composable decorators.
 pub struct MeteredClient<C: CloudClient> {
     inner: C,
 }
@@ -52,8 +55,15 @@ impl<C: CloudClient> MeteredClient<C> {
     pub fn new(inner: C) -> Self {
         Self { inner }
     }
+}
 
-    pub async fn set_tags(&self, resource_id: &str, labels: &Labels) -> Result<(), Error> {
+#[async_trait]
+impl<C: CloudClient> CloudClient for MeteredClient<C> {
+    fn provider_name(&self) -> &'static str {
+        self.inner.provider_name()
+    }
+
+    async fn set_tags(&self, resource_id: &str, labels: &Labels) -> Result<(), Error> {
         let start = std::time::Instant::now();
         let result = self.inner.set_tags(resource_id, labels).await;
 

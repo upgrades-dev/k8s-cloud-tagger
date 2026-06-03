@@ -8,7 +8,7 @@ mod resources;
 mod tls;
 mod traits;
 
-use crate::cloud::MeteredClient;
+
 use crate::reconciler::Context;
 use crate::reconciler::{error_policy, reconcile};
 use futures::StreamExt;
@@ -56,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
     let ctx = Arc::new(Context {
         client: client.clone(),
         config: cfg,
-        cloud: MeteredClient::new(cloud),
+        cloud: Box::new(cloud::MeteredClient::new(cloud)),
         reporter,
     });
 

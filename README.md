@@ -132,6 +132,15 @@ For more detail on AWS tag requirements, see the [AWS tagging best practices](ht
 
 > **Note:** AWS reserves the `aws:` key prefix for its own use. Any Kubernetes label key that begins with `aws:` after sanitisation will be rejected and not applied to the resource.
 
+## Maintenance
+
+See [docs/chores.md](./docs/chores.md) for routine maintenance tasks:
+
+- Updating Rust dependencies (`cargo update`)
+- Updating Nix flake inputs (`nix flake update`)
+- Updating the Chainguard base image
+- Running integration tests to verify changes
+
 ## Release
 
 1. Check out a new branch
